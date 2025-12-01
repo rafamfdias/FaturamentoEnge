@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f0f4f5;
             min-height: 100vh;
             padding: 20px;
         }
@@ -25,7 +25,7 @@
 
         .header {
             text-align: center;
-            color: white;
+            color: #333;
             margin-bottom: 30px;
         }
 
@@ -243,12 +243,46 @@
             gap: 10px;
             margin-top: 20px;
         }
+
+        .logo-container {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            z-index: 1000;
+        }
+
+        .logo-container .logo-text {
+            font-size: 1.5em;
+            font-weight: bold;
+            background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-container .logo-subtitle {
+            font-size: 0.7em;
+            color: #666;
+            text-align: right;
+        }
+
+        @media (max-width: 768px) {
+            .logo-container {
+                position: static;
+                text-align: center;
+                margin-bottom: 20px;
+            }
+        }
     </style>
 </head>
 <body>
+    <div class="logo-container">
+        <img src="EngeLogo.png" alt="Engesoftware" style="max-height: 40px; width: auto;">
+    </div>
+    
     <div class="container">
         <div class="header">
-            <h1>📊 Sistema de Faturamento</h1>
+            <h1>Sistema de Faturamento</h1>
             <p>Upload e processamento de planilhas</p>
         </div>
 
