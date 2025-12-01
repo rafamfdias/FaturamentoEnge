@@ -279,6 +279,47 @@
                 </button>
             </div>
 
+            <div style="margin-top: 20px; padding: 20px; background: #f8f9ff; border-radius: 10px;">
+                <h3 style="text-align: center; color: #667eea; margin-bottom: 15px;">🔍 Filtros</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div>
+                        <label style="font-weight: bold; display: block; margin-bottom: 5px;">Comunidade:</label>
+                        <select id="comunidadeFilter" onchange="applyFilters()" style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; display: block; margin-bottom: 5px;">Time (BRE):</label>
+                        <select id="breFilter" onchange="applyFilters()" style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; display: block; margin-bottom: 5px;">Gerente:</label>
+                        <select id="gerenteFilter" onchange="applyFilters()" style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; display: block; margin-bottom: 5px;">Preposto:</label>
+                        <select id="prepostoFilter" onchange="applyFilters()" style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; display: block; margin-bottom: 5px;">Grupo:</label>
+                        <select id="grupoFilter" onchange="applyFilters()" style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: flex-end;">
+                        <button class="btn" onclick="clearFilters()" style="width: 100%; padding: 8px;">
+                            🔄 Limpar Filtros
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="loading" id="loading">
                 <div class="spinner"></div>
                 <p>Processando planilha...</p>
@@ -410,6 +451,8 @@
             }
         }
 
+        let allData = []; // Armazenar todos os dados
+
         // Carregar dados
         async function loadData() {
             showLoading(true);
@@ -424,10 +467,10 @@
                 const totalData = await totalResponse.json();
 
                 if (dataResponse.ok && totalResponse.ok) {
+                    allData = data; // Guardar todos os dados
+                    populateBREFilter(data); // Popular o filtro de BRE
                     displayData(data);
-                    document.getElementById('totalRegistros').textContent = data.length;
-                    const total = parseFloat(totalData.total) || 0;
-                    document.getElementById('totalValor').textContent = 'R$ ' + total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    updateStats(data.length, totalData.total);
                     document.getElementById('statsCard').style.display = 'block';
                 } else {
                     showMessage('error', `❌ Erro ao carregar dados: ${data.error}`);
@@ -437,6 +480,85 @@
             } finally {
                 showLoading(false);
             }
+        }
+
+        // Popular todos os filtros
+        function populateBREFilter(data) {
+            populateFilter('comunidadeFilter', data, 'comunidade');
+            populateFilter('breFilter', data, 'time_bre');
+            populateFilter('gerenteFilter', data, 'gerente');
+            populateFilter('prepostoFilter', data, 'preposto');
+            populateFilter('grupoFilter', data, 'grupo');
+        }
+
+        // Popular um filtro específico
+        function populateFilter(filterId, data, field) {
+            const valueSet = new Set();
+            data.forEach(item => {
+                if (item[field] && item[field] !== '-' && item[field] !== '') {
+                    valueSet.add(item[field]);
+                }
+            });
+            
+            const filter = document.getElementById(filterId);
+            filter.innerHTML = '<option value="">Todos</option>';
+            
+            // Ordenar valores
+            const sortedValues = Array.from(valueSet).sort();
+            sortedValues.forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                filter.appendChild(option);
+            });
+        }
+
+        // Aplicar múltiplos filtros
+        function applyFilters() {
+            const filters = {
+                comunidade: document.getElementById('comunidadeFilter').value,
+                time_bre: document.getElementById('breFilter').value,
+                gerente: document.getElementById('gerenteFilter').value,
+                preposto: document.getElementById('prepostoFilter').value,
+                grupo: document.getElementById('grupoFilter').value
+            };
+            
+            let filteredData = allData;
+            
+            // Aplicar cada filtro
+            Object.keys(filters).forEach(key => {
+                if (filters[key]) {
+                    filteredData = filteredData.filter(item => item[key] === filters[key]);
+                }
+            });
+            
+            displayData(filteredData);
+            updateStatsForFiltered(filteredData);
+        }
+
+        // Limpar todos os filtros
+        function clearFilters() {
+            document.getElementById('comunidadeFilter').value = '';
+            document.getElementById('breFilter').value = '';
+            document.getElementById('gerenteFilter').value = '';
+            document.getElementById('prepostoFilter').value = '';
+            document.getElementById('grupoFilter').value = '';
+            
+            displayData(allData);
+            updateStatsForFiltered(allData);
+        }
+
+        // Atualizar estatísticas
+        function updateStats(count, total) {
+            document.getElementById('totalRegistros').textContent = count;
+            const totalValue = parseFloat(total) || 0;
+            document.getElementById('totalValor').textContent = 'R$ ' + totalValue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        // Atualizar estatísticas para dados filtrados
+        function updateStatsForFiltered(data) {
+            const total = data.reduce((sum, item) => sum + (parseFloat(item.valor_proporcional) || 0), 0);
+            updateStats(data.length, total);
         }
 
         // Exibir dados na tabela
