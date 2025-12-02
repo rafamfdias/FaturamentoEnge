@@ -318,33 +318,28 @@
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                     <div>
                         <label style="font-weight: bold; display: block; margin-bottom: 5px;">Comunidade:</label>
-                        <select id="comunidadeFilter" onchange="applyFilters()" style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
-                            <option value="">Todos</option>
-                        </select>
+                        <input type="text" id="comunidadeFilter" list="comunidadeList" oninput="applyFilters()" placeholder="Digite ou selecione..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                        <datalist id="comunidadeList"></datalist>
                     </div>
                     <div>
                         <label style="font-weight: bold; display: block; margin-bottom: 5px;">Time (BRE):</label>
-                        <select id="breFilter" onchange="applyFilters()" style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
-                            <option value="">Todos</option>
-                        </select>
+                        <input type="text" id="breFilter" list="breList" oninput="applyFilters()" placeholder="Digite ou selecione..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                        <datalist id="breList"></datalist>
                     </div>
                     <div>
                         <label style="font-weight: bold; display: block; margin-bottom: 5px;">Gerente:</label>
-                        <select id="gerenteFilter" onchange="applyFilters()" style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
-                            <option value="">Todos</option>
-                        </select>
+                        <input type="text" id="gerenteFilter" list="gerenteList" oninput="applyFilters()" placeholder="Digite ou selecione..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                        <datalist id="gerenteList"></datalist>
                     </div>
                     <div>
                         <label style="font-weight: bold; display: block; margin-bottom: 5px;">Preposto:</label>
-                        <select id="prepostoFilter" onchange="applyFilters()" style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
-                            <option value="">Todos</option>
-                        </select>
+                        <input type="text" id="prepostoFilter" list="prepostoList" oninput="applyFilters()" placeholder="Digite ou selecione..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                        <datalist id="prepostoList"></datalist>
                     </div>
                     <div>
                         <label style="font-weight: bold; display: block; margin-bottom: 5px;">Grupo:</label>
-                        <select id="grupoFilter" onchange="applyFilters()" style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
-                            <option value="">Todos</option>
-                        </select>
+                        <input type="text" id="grupoFilter" list="grupoList" oninput="applyFilters()" placeholder="Digite ou selecione..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                        <datalist id="grupoList"></datalist>
                     </div>
                     <div style="display: flex; align-items: flex-end;">
                         <button class="btn" onclick="clearFilters()" style="width: 100%; padding: 8px;">
@@ -534,35 +529,39 @@
                 }
             });
             
-            const filter = document.getElementById(filterId);
-            filter.innerHTML = '<option value="">Todos</option>';
+            const datalistId = filterId.replace('Filter', 'List');
+            const datalist = document.getElementById(datalistId);
+            datalist.innerHTML = '';
             
             // Ordenar valores
             const sortedValues = Array.from(valueSet).sort();
             sortedValues.forEach(value => {
                 const option = document.createElement('option');
                 option.value = value;
-                option.textContent = value;
-                filter.appendChild(option);
+                datalist.appendChild(option);
             });
         }
 
         // Aplicar múltiplos filtros
         function applyFilters() {
             const filters = {
-                comunidade: document.getElementById('comunidadeFilter').value,
-                time_bre: document.getElementById('breFilter').value,
-                gerente: document.getElementById('gerenteFilter').value,
-                preposto: document.getElementById('prepostoFilter').value,
-                grupo: document.getElementById('grupoFilter').value
+                comunidade: document.getElementById('comunidadeFilter').value.trim(),
+                time_bre: document.getElementById('breFilter').value.trim(),
+                gerente: document.getElementById('gerenteFilter').value.trim(),
+                preposto: document.getElementById('prepostoFilter').value.trim(),
+                grupo: document.getElementById('grupoFilter').value.trim()
             };
             
             let filteredData = allData;
             
-            // Aplicar cada filtro
+            // Aplicar cada filtro com busca parcial (case insensitive)
             Object.keys(filters).forEach(key => {
                 if (filters[key]) {
-                    filteredData = filteredData.filter(item => item[key] === filters[key]);
+                    const searchTerm = filters[key].toLowerCase();
+                    filteredData = filteredData.filter(item => {
+                        const itemValue = (item[key] || '').toString().toLowerCase();
+                        return itemValue.includes(searchTerm);
+                    });
                 }
             });
             
