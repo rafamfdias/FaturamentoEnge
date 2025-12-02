@@ -148,3 +148,9 @@ export class PlanilhaService {
     await pool.query('TRUNCATE TABLE funcionarios RESTART IDENTITY');
   }
 }
+
+// Exportar função auxiliar para uso em outras rotas
+export const obterTotalValorProporcional = async (): Promise<number> => {
+  const result = await pool.query('SELECT COALESCE(SUM(valor_proporcional), 0) as total FROM funcionarios');
+  return parseFloat(result.rows[0].total);
+};

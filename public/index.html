@@ -273,6 +273,42 @@
                 margin-bottom: 20px;
             }
         }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .tab {
+            padding: 12px 30px;
+            background: white;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            color: #666;
+            border-radius: 10px 10px 0 0;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            background: #f0f2ff;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -286,6 +322,13 @@
             <p>Upload e processamento de planilhas</p>
         </div>
 
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('funcionarios')">📋 Funcionários</button>
+            <button class="tab" onclick="switchTab('empenho')">💰 Empenho</button>
+            <button class="tab" onclick="switchTab('relatorio')">📊 Relatório</button>
+        </div>
+
+        <div id="funcionarios-tab" class="tab-content active">
         <div class="card">
             <div class="upload-area" id="uploadArea">
                 <div class="upload-icon">📁</div>
@@ -393,9 +436,111 @@
                 </table>
             </div>
         </div>
+        </div>
+
+        <!-- Aba de Empenho -->
+        <div id="empenho-tab" class="tab-content">
+            <div class="card">
+                <h2>💰 Upload de Planilha de Empenho</h2>
+                <p style="color: #666; margin-bottom: 20px;">Faça upload da planilha de empenho que contém os valores pagos pela Caixa</p>
+                
+                <div class="upload-area" id="uploadAreaEmpenho">
+                    <div class="upload-icon">💰</div>
+                    <h3>Arraste a planilha de Empenho aqui</h3>
+                    <p>Formatos aceitos: .xlsx, .xls, .csv (máx. 10MB)</p>
+                    <button class="btn" onclick="document.getElementById('fileInputEmpenho').click()">
+                        Selecionar Arquivo
+                    </button>
+                    <input type="file" id="fileInputEmpenho" accept=".xlsx,.xls,.csv" style="display: none;">
+                </div>
+
+                <div class="file-info" id="fileInfoEmpenho">
+                    <strong>📄 Arquivo selecionado:</strong> <span id="fileNameEmpenho"></span>
+                </div>
+
+                <div class="actions">
+                    <button class="btn" id="uploadBtnEmpenho" onclick="uploadEmpenho()" disabled>
+                        ⬆️ Enviar Empenho
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadEmpenho()">
+                        🔄 Atualizar Dados
+                    </button>
+                </div>
+
+                <div class="loading" id="loadingEmpenho">
+                    <div class="spinner"></div>
+                    <p>Processando empenho...</p>
+                </div>
+
+                <div class="message" id="messageEmpenho"></div>
+            </div>
+
+            <div class="card" id="empenhoCard" style="display: none;">
+                <h2>💰 Dados de Empenho</h2>
+                <div class="table-container">
+                    <table id="empenhoTable">
+                        <thead>
+                            <tr>
+                                <th>Comunidade</th>
+                                <th>Equipe</th>
+                                <th>Quantidade de Membros</th>
+                                <th>Valor Líquido</th>
+                            </tr>
+                        </thead>
+                        <tbody id="empenhoBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aba de Relatório -->
+        <div id="relatorio-tab" class="tab-content">
+            <div class="card">
+                <h2>📊 Relatório Comparativo</h2>
+                <p style="color: #666; margin-bottom: 20px;">Comparação entre funcionários cadastrados e valores de empenho</p>
+                
+                <div class="stats">
+                    <div class="stat-card">
+                        <h3 id="totalFuncionarios">0</h3>
+                        <p>Total Funcionários</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="totalEmpenhos">0</h3>
+                        <p>Total Empenhos</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="diferencaValor">R$ 0,00</h3>
+                        <p>Diferença</p>
+                    </div>
+                </div>
+
+                <div class="loading" id="loadingRelatorio">
+                    <div class="spinner"></div>
+                    <p>Carregando relatório...</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
+        // Gerenciamento de abas
+        function switchTab(tabName) {
+            // Remover active de todas as abas e conteúdos
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Adicionar active na aba clicada
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Carregar dados da aba se necessário
+            if (tabName === 'empenho') {
+                loadEmpenho();
+            } else if (tabName === 'relatorio') {
+                loadRelatorio();
+            }
+        }
         let selectedFile = null;
 
         // Configurar área de upload
@@ -669,6 +814,169 @@
 
         // Carregar dados ao iniciar
         loadData();
+
+        // ============ FUNÇÕES DE EMPENHO ============
+        let selectedFileEmpenho = null;
+        let allEmpenhoData = [];
+
+        // Configurar área de upload de empenho
+        const uploadAreaEmpenho = document.getElementById('uploadAreaEmpenho');
+        const fileInputEmpenho = document.getElementById('fileInputEmpenho');
+        const fileInfoEmpenho = document.getElementById('fileInfoEmpenho');
+        const uploadBtnEmpenho = document.getElementById('uploadBtnEmpenho');
+
+        // Eventos de drag and drop para empenho
+        uploadAreaEmpenho.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadAreaEmpenho.classList.add('dragover');
+        });
+
+        uploadAreaEmpenho.addEventListener('dragleave', () => {
+            uploadAreaEmpenho.classList.remove('dragover');
+        });
+
+        uploadAreaEmpenho.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadAreaEmpenho.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInputEmpenho.files = files;
+                handleFileSelectEmpenho();
+            }
+        });
+
+        fileInputEmpenho.addEventListener('change', handleFileSelectEmpenho);
+
+        function handleFileSelectEmpenho() {
+            selectedFileEmpenho = fileInputEmpenho.files[0];
+            if (selectedFileEmpenho) {
+                document.getElementById('fileNameEmpenho').textContent = selectedFileEmpenho.name;
+                fileInfoEmpenho.classList.add('show');
+                uploadBtnEmpenho.disabled = false;
+            }
+        }
+
+        // Upload de empenho
+        async function uploadEmpenho() {
+            if (!selectedFileEmpenho) return;
+
+            const formData = new FormData();
+            formData.append('planilha', selectedFileEmpenho);
+
+            showLoadingEmpenho(true);
+            hideMessageEmpenho();
+
+            try {
+                const response = await fetch('/api/empenho/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessageEmpenho('success', `✅ ${data.message}\nRegistros importados: ${data.registros_importados}`);
+                    
+                    // Limpar seleção
+                    fileInputEmpenho.value = '';
+                    selectedFileEmpenho = null;
+                    fileInfoEmpenho.classList.remove('show');
+                    uploadBtnEmpenho.disabled = false;
+
+                    // Atualizar dados
+                    await loadEmpenho();
+                } else {
+                    showMessageEmpenho('error', `❌ Erro: ${data.error}`);
+                }
+            } catch (error) {
+                showMessageEmpenho('error', `❌ Erro ao enviar arquivo: ${error.message}`);
+            } finally {
+                showLoadingEmpenho(false);
+            }
+        }
+
+        // Carregar dados de empenho
+        async function loadEmpenho() {
+            showLoadingEmpenho(true);
+            
+            try {
+                const response = await fetch('/api/empenho');
+                const data = await response.json();
+
+                if (response.ok) {
+                    allEmpenhoData = data;
+                    displayEmpenho(data);
+                    document.getElementById('empenhoCard').style.display = 'block';
+                } else {
+                    showMessageEmpenho('error', `❌ Erro ao carregar dados: ${data.error}`);
+                }
+            } catch (error) {
+                showMessageEmpenho('error', `❌ Erro ao carregar dados: ${error.message}`);
+            } finally {
+                showLoadingEmpenho(false);
+            }
+        }
+
+        // Exibir dados de empenho
+        function displayEmpenho(data) {
+            const tbody = document.getElementById('empenhoBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                document.getElementById('empenhoCard').style.display = 'none';
+                return;
+            }
+
+            data.forEach(item => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${item.comunidade || '-'}</td>
+                    <td>${item.equipe || '-'}</td>
+                    <td>${parseFloat(item.quantidade_membros || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>R$ ${parseFloat(item.valor_liquido || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                `;
+            });
+        }
+
+        // Carregar relatório comparativo
+        async function loadRelatorio() {
+            showLoadingRelatorio(true);
+            
+            try {
+                const response = await fetch('/api/empenho/relatorio');
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('totalFuncionarios').textContent = 'R$ ' + (data.totalFuncionarios || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    document.getElementById('totalEmpenhos').textContent = 'R$ ' + (data.totalEmpenhos || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    document.getElementById('diferencaValor').textContent = 'R$ ' + (data.diferenca || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                }
+            } catch (error) {
+                console.error('Erro ao carregar relatório:', error);
+            } finally {
+                showLoadingRelatorio(false);
+            }
+        }
+
+        // Funções auxiliares para empenho
+        function showLoadingEmpenho(show) {
+            document.getElementById('loadingEmpenho').classList.toggle('show', show);
+        }
+
+        function showMessageEmpenho(type, text) {
+            const messageEl = document.getElementById('messageEmpenho');
+            messageEl.className = `message ${type} show`;
+            messageEl.textContent = text;
+        }
+
+        function hideMessageEmpenho() {
+            document.getElementById('messageEmpenho').classList.remove('show');
+        }
+
+        function showLoadingRelatorio(show) {
+            document.getElementById('loadingRelatorio').classList.toggle('show', show);
+        }
     </script>
 </body>
 </html>

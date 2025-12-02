@@ -1,28 +1,38 @@
 import { pool } from '../config/database';
 
 export const createTables = async () => {
-  const query = `
-    CREATE TABLE IF NOT EXISTS funcionarios (
-      id SERIAL PRIMARY KEY,
-      contrato VARCHAR(255),
-      comunidade VARCHAR(255),
-      time_bre VARCHAR(255),
-      gerente VARCHAR(255),
-      preposto VARCHAR(255),
-      nome VARCHAR(255),
-      matricula VARCHAR(100),
-      posto VARCHAR(255),
-      grupo VARCHAR(255),
-      valor_proporcional DECIMAL(10, 2),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
+  const queries = [
+    `CREATE TABLE IF NOT EXISTS funcionarios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      contrato TEXT,
+      comunidade TEXT,
+      time_bre TEXT,
+      gerente TEXT,
+      preposto TEXT,
+      nome TEXT,
+      matricula TEXT,
+      posto TEXT,
+      grupo TEXT,
+      valor_proporcional REAL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS empenhos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      comunidade TEXT,
+      equipe TEXT,
+      quantidade_membros REAL,
+      valor_liquido REAL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`
+  ];
 
   try {
-    await pool.query(query);
-    console.log('✅ Tabela "funcionarios" criada ou já existe');
+    for (const query of queries) {
+      await pool.query(query);
+    }
+    console.log('✅ Tabelas "funcionarios" e "empenhos" criadas ou já existem');
   } catch (error) {
-    console.error('❌ Erro ao criar tabela:', error);
+    console.error('❌ Erro ao criar tabelas:', error);
     throw error;
   }
 };

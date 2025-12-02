@@ -4,6 +4,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { createTables } from './database/init';
 import planilhaRoutes from './routes/planilhaRoutes';
+import empenhoRoutes from './routes/empenhoRoutes';
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Rotas da API
 app.use('/api', planilhaRoutes);
+app.use('/api/empenho', empenhoRoutes);
 
 // Rota principal
 app.get('/', (req, res) => {
