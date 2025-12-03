@@ -309,6 +309,67 @@
         .tab-content.active {
             display: block;
         }
+
+        /* Modal de detalhes */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 1200px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .modal-header h2 {
+            color: #667eea;
+            margin: 0;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 35px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #667eea;
+        }
+
+        .clickable-qty {
+            cursor: pointer;
+            color: #667eea;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        .clickable-qty:hover {
+            color: #764ba2;
+        }
     </style>
 </head>
 <body>
@@ -520,15 +581,15 @@
         <div id="relatorio-tab" class="tab-content">
             <div class="card">
                 <h2>📊 Relatório Comparativo</h2>
-                <p style="color: #666; margin-bottom: 20px;">Comparação entre funcionários cadastrados e valores de empenho</p>
+                <p style="color: #666; margin-bottom: 20px;">Comparação entre funcionários cadastrados e valores de empenho por equipe</p>
                 
                 <div class="stats">
                     <div class="stat-card">
-                        <h3 id="totalFuncionarios">0</h3>
+                        <h3 id="totalFuncionarios">R$ 0,00</h3>
                         <p>Total Funcionários</p>
                     </div>
                     <div class="stat-card">
-                        <h3 id="totalEmpenhos">0</h3>
+                        <h3 id="totalEmpenhos">R$ 0,00</h3>
                         <p>Total Empenhos</p>
                     </div>
                     <div class="stat-card">
@@ -541,6 +602,78 @@
                     <div class="spinner"></div>
                     <p>Carregando relatório...</p>
                 </div>
+            </div>
+
+            <div class="card" id="relatorioDetalhadoCard" style="display: none;">
+                <h2>📋 Comparação Detalhada por Equipe</h2>
+                <div style="margin-bottom: 20px; padding: 15px; background: #f8f9ff; border-radius: 10px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: end;">
+                        <div>
+                            <label style="font-weight: bold; display: block; margin-bottom: 5px;">Filtrar por Comunidade:</label>
+                            <input type="text" id="comunidadeFilterRelatorio" list="comunidadeListRelatorio" oninput="applyRelatorioFilters()" placeholder="Digite para filtrar..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                            <datalist id="comunidadeListRelatorio"></datalist>
+                        </div>
+                        <div>
+                            <label style="font-weight: bold; display: block; margin-bottom: 5px;">Filtrar por Equipe (BRE):</label>
+                            <input type="text" id="equipeFilterRelatorio" list="equipeListRelatorio" oninput="applyRelatorioFilters()" placeholder="Digite para filtrar..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                            <datalist id="equipeListRelatorio"></datalist>
+                        </div>
+                        <div>
+                            <label style="font-weight: bold; display: block; margin-bottom: 5px;">Filtrar por Preposto:</label>
+                            <input type="text" id="prepostoFilterRelatorio" list="prepostoListRelatorio" oninput="applyRelatorioFilters()" placeholder="Digite para filtrar..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                            <datalist id="prepostoListRelatorio"></datalist>
+                        </div>
+                        <div>
+                            <button class="btn btn-secondary" onclick="clearRelatorioFilters()" style="width: 100%; padding: 8px;">🔄 Limpar Filtros</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="relatorioTable">
+                        <thead>
+                            <tr>
+                                <th>Comunidade</th>
+                                <th>Equipe (BRE)</th>
+                                <th>Qtd. Membros</th>
+                                <th>Valor Funcionários</th>
+                                <th>Valor Empenho</th>
+                                <th>Diferença</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="relatorioBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Detalhes dos Funcionários -->
+    <div id="detalhesModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Detalhes da Equipe</h2>
+                <span class="close" onclick="closeDetalhesModal()">&times;</span>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Contrato</th>
+                            <th>Comunidade</th>
+                            <th>Gerente</th>
+                            <th>Preposto</th>
+                            <th>Nome</th>
+                            <th>Matrícula</th>
+                            <th>Posto</th>
+                            <th>Grupo</th>
+                            <th>Valor Proporcional</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalTableBody">
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -1024,23 +1157,297 @@
             });
         }
 
+        let relatorioData = [];
+
         // Carregar relatório comparativo
         async function loadRelatorio() {
             showLoadingRelatorio(true);
             
             try {
-                const response = await fetch('/api/empenho/relatorio');
-                const data = await response.json();
+                // Carregar dados de funcionários e empenho
+                const [funcResponse, empResponse] = await Promise.all([
+                    fetch('/api/funcionarios'),
+                    fetch('/api/empenho')
+                ]);
+                
+                const funcionarios = await funcResponse.json();
+                const empenhos = await empResponse.json();
 
-                if (response.ok) {
-                    document.getElementById('totalFuncionarios').textContent = 'R$ ' + (data.totalFuncionarios || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    document.getElementById('totalEmpenhos').textContent = 'R$ ' + (data.totalEmpenhos || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    document.getElementById('diferencaValor').textContent = 'R$ ' + (data.diferenca || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                if (funcResponse.ok && empResponse.ok) {
+                    // Agrupar funcionários por equipe (time_bre)
+                    const funcPorEquipe = {};
+                    funcionarios.forEach(func => {
+                        const bre = func.time_bre || 'Sem Equipe';
+                        if (!funcPorEquipe[bre]) {
+                            funcPorEquipe[bre] = {
+                                comunidade: func.comunidade || 'Não especificado',
+                                equipe: bre,
+                                quantidade: 0,
+                                valor: 0
+                            };
+                        }
+                        funcPorEquipe[bre].quantidade++;
+                        funcPorEquipe[bre].valor += parseFloat(func.valor_proporcional || 0);
+                    });
+
+                    // Agrupar empenhos por equipe
+                    const empPorEquipe = {};
+                    empenhos.forEach(emp => {
+                        const bre = emp.equipe || 'Sem Equipe';
+                        if (!empPorEquipe[bre]) {
+                            empPorEquipe[bre] = {
+                                comunidade: emp.comunidade || 'Não especificado',
+                                equipe: bre,
+                                quantidade: emp.quantidade_membros || 0,
+                                valor: 0
+                            };
+                        }
+                        empPorEquipe[bre].valor += parseFloat(emp.valor_liquido || 0);
+                    });
+
+                    // Combinar dados
+                    const todasEquipes = new Set([...Object.keys(funcPorEquipe), ...Object.keys(empPorEquipe)]);
+                    relatorioData = [];
+                    
+                    let totalFunc = 0;
+                    let totalEmp = 0;
+
+                    todasEquipes.forEach(bre => {
+                        const func = funcPorEquipe[bre] || { comunidade: empPorEquipe[bre]?.comunidade || 'Não especificado', equipe: bre, quantidade: 0, valor: 0 };
+                        const emp = empPorEquipe[bre] || { comunidade: funcPorEquipe[bre]?.comunidade || 'Não especificado', equipe: bre, quantidade: 0, valor: 0 };
+                        
+                        // Pegar preposto da primeira pessoa da equipe
+                        const primeiroFunc = funcionarios.find(f => f.time_bre === bre);
+                        const preposto = primeiroFunc?.preposto || 'Não especificado';
+                        
+                        const diferenca = emp.valor - func.valor;  // Invertido: Empenho - Funcionários
+                        totalFunc += func.valor;
+                        totalEmp += emp.valor;
+
+                        relatorioData.push({
+                            comunidade: func.comunidade || emp.comunidade,
+                            equipe: bre,
+                            preposto: preposto,
+                            quantidadeMembros: Math.max(func.quantidade, emp.quantidade),
+                            valorFuncionarios: func.valor,
+                            valorEmpenho: emp.valor,
+                            diferenca: diferenca,
+                            status: diferenca === 0 ? 'OK' : diferenca > 0 ? 'Empenho > Funcionários' : 'Funcionários > Empenho'
+                        });
+                    });
+
+                    // Atualizar totais
+                    document.getElementById('totalFuncionarios').textContent = 'R$ ' + totalFunc.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    document.getElementById('totalEmpenhos').textContent = 'R$ ' + totalEmp.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    const diferencaTotal = totalEmp - totalFunc;  // Invertido: Empenho - Funcionários
+                    document.getElementById('diferencaValor').textContent = 'R$ ' + diferencaTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+                    // Popular filtros e exibir dados
+                    populateRelatorioFilters(relatorioData);
+                    displayRelatorio(relatorioData);
+                    document.getElementById('relatorioDetalhadoCard').style.display = 'block';
                 }
             } catch (error) {
                 console.error('Erro ao carregar relatório:', error);
             } finally {
                 showLoadingRelatorio(false);
+            }
+        }
+
+        // Popular filtros do relatório
+        function populateRelatorioFilters(data) {
+            const comunidadeSet = new Set();
+            const equipeSet = new Set();
+            const prepostoSet = new Set();
+            
+            data.forEach(item => {
+                if (item.comunidade && item.comunidade !== 'Não especificado') {
+                    comunidadeSet.add(item.comunidade);
+                }
+                if (item.equipe && item.equipe !== 'Sem Equipe') {
+                    equipeSet.add(item.equipe);
+                }
+                if (item.preposto && item.preposto !== 'Não especificado') {
+                    prepostoSet.add(item.preposto);
+                }
+            });
+            
+            // Popular datalist de comunidades
+            const comunidadeList = document.getElementById('comunidadeListRelatorio');
+            comunidadeList.innerHTML = '';
+            Array.from(comunidadeSet).sort().forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                comunidadeList.appendChild(option);
+            });
+
+            // Popular datalist de equipes
+            const equipeList = document.getElementById('equipeListRelatorio');
+            equipeList.innerHTML = '';
+            Array.from(equipeSet).sort().forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                equipeList.appendChild(option);
+            });
+
+            // Popular datalist de prepostos
+            const prepostoList = document.getElementById('prepostoListRelatorio');
+            prepostoList.innerHTML = '';
+            Array.from(prepostoSet).sort().forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                prepostoList.appendChild(option);
+            });
+        }
+
+        // Aplicar filtros do relatório
+        function applyRelatorioFilters() {
+            const comunidadeFilter = document.getElementById('comunidadeFilterRelatorio').value.trim().toLowerCase();
+            const equipeFilter = document.getElementById('equipeFilterRelatorio').value.trim().toLowerCase();
+            const prepostoFilter = document.getElementById('prepostoFilterRelatorio').value.trim().toLowerCase();
+            
+            let filteredData = relatorioData;
+            
+            if (comunidadeFilter) {
+                filteredData = filteredData.filter(item => 
+                    (item.comunidade || '').toLowerCase().includes(comunidadeFilter)
+                );
+            }
+
+            if (equipeFilter) {
+                filteredData = filteredData.filter(item => 
+                    (item.equipe || '').toLowerCase().includes(equipeFilter)
+                );
+            }
+
+            if (prepostoFilter) {
+                filteredData = filteredData.filter(item => 
+                    (item.preposto || '').toLowerCase().includes(prepostoFilter)
+                );
+            }
+            
+            // Recalcular totais dos dados filtrados
+            let totalFunc = 0;
+            let totalEmp = 0;
+            
+            filteredData.forEach(item => {
+                totalFunc += item.valorFuncionarios;
+                totalEmp += item.valorEmpenho;
+            });
+            
+            // Atualizar totais na interface
+            document.getElementById('totalFuncionarios').textContent = 'R$ ' + totalFunc.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('totalEmpenhos').textContent = 'R$ ' + totalEmp.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const diferencaTotal = totalEmp - totalFunc;
+            document.getElementById('diferencaValor').textContent = 'R$ ' + diferencaTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            displayRelatorio(filteredData);
+        }
+
+        // Limpar filtros do relatório
+        function clearRelatorioFilters() {
+            document.getElementById('comunidadeFilterRelatorio').value = '';
+            document.getElementById('equipeFilterRelatorio').value = '';
+            document.getElementById('prepostoFilterRelatorio').value = '';
+            displayRelatorio(relatorioData);
+        }
+
+        // Exibir relatório detalhado
+        function displayRelatorio(data) {
+            const tbody = document.getElementById('relatorioBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                return;
+            }
+
+            data.forEach(item => {
+                const row = tbody.insertRow();
+                
+                // Definir cor de fundo baseada na diferença
+                let statusColor = '';
+                if (item.diferenca === 0) {
+                    statusColor = 'background: #d4edda;'; // Verde claro - OK
+                } else if (item.diferenca > 0) {
+                    statusColor = 'background: #d1ecf1;'; // Azul claro - Empenho > Funcionários (bom)
+                } else {
+                    statusColor = 'background: #f8d7da;'; // Vermelho claro - Funcionários > Empenho (problema)
+                }
+                
+                row.style = statusColor;
+                
+                row.innerHTML = `
+                    <td>${item.comunidade || '-'}</td>
+                    <td><strong>${item.equipe || '-'}</strong></td>
+                    <td style="text-align: center;">
+                        <span class="clickable-qty" onclick="showDetalhes('${item.equipe}')">${item.quantidadeMembros}</span>
+                    </td>
+                    <td>R$ ${item.valorFuncionarios.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>R$ ${item.valorEmpenho.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td style="font-weight: bold; color: ${item.diferenca === 0 ? 'green' : item.diferenca > 0 ? 'blue' : 'red'};">
+                        R$ ${item.diferenca.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </td>
+                    <td style="text-align: center;">
+                        ${item.diferenca === 0 ? '✅ OK' : item.diferenca > 0 ? '⚠️ Emp > Func' : '⚠️ Func > Emp'}
+                    </td>
+                `;
+            });
+        }
+
+        // Mostrar detalhes dos funcionários da equipe
+        async function showDetalhes(equipe) {
+            try {
+                const response = await fetch('/api/funcionarios');
+                const funcionarios = await response.json();
+                
+                // Filtrar funcionários da equipe
+                const funcionariosEquipe = funcionarios.filter(func => func.time_bre === equipe);
+                
+                if (funcionariosEquipe.length === 0) {
+                    alert('Nenhum funcionário encontrado para esta equipe.');
+                    return;
+                }
+                
+                // Atualizar título do modal
+                document.getElementById('modalTitle').textContent = `Detalhes da Equipe ${equipe} (${funcionariosEquipe.length} membros)`;
+                
+                // Preencher tabela
+                const tbody = document.getElementById('modalTableBody');
+                tbody.innerHTML = '';
+                
+                funcionariosEquipe.forEach(func => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${func.contrato || '-'}</td>
+                        <td>${func.comunidade || '-'}</td>
+                        <td>${func.gerente || '-'}</td>
+                        <td>${func.preposto || '-'}</td>
+                        <td>${func.nome || '-'}</td>
+                        <td>${func.matricula || '-'}</td>
+                        <td>${func.posto || '-'}</td>
+                        <td>${func.grupo || '-'}</td>
+                        <td>R$ ${parseFloat(func.valor_proporcional || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    `;
+                });
+                
+                // Mostrar modal
+                document.getElementById('detalhesModal').style.display = 'block';
+            } catch (error) {
+                console.error('Erro ao carregar detalhes:', error);
+                alert('Erro ao carregar detalhes dos funcionários.');
+            }
+        }
+
+        // Fechar modal
+        function closeDetalhesModal() {
+            document.getElementById('detalhesModal').style.display = 'none';
+        }
+
+        // Fechar modal ao clicar fora
+        window.onclick = function(event) {
+            const modal = document.getElementById('detalhesModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
             }
         }
 
