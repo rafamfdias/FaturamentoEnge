@@ -133,8 +133,8 @@ export const processarPlanilhaEmpenho = async (filePath: string) => {
           
           console.log(`🔍 Linha ${row + 1}: Equipe=${equipe}, Qtd=${quantidadeMembros}, Valor=${valorLiquido}`);
           
-          // Agrupar por comunidade + equipe
-          if (equipe && !equipe.toLowerCase().includes('total') && valorLiquido > 0) {
+          // Agrupar por comunidade + equipe (aceita valores negativos também - são ajustes/descontos)
+          if (equipe && !equipe.toLowerCase().includes('total') && valorLiquido !== 0) {
             const chave = `${comunidadeAtual}|${equipe}`;
             
             if (equipesMap.has(chave)) {
@@ -142,7 +142,7 @@ export const processarPlanilhaEmpenho = async (filePath: string) => {
               const existente = equipesMap.get(chave)!;
               existente.valor_liquido = (existente.valor_liquido || 0) + valorLiquido;
               existente.quantidade_membros = Math.max(existente.quantidade_membros || 0, quantidadeMembros);
-              console.log(`➕ Somando à equipe existente: ${equipe} - Novo total: R$ ${existente.valor_liquido}`);
+              console.log(`➕ Somando à equipe existente: ${equipe} - Valor ${valorLiquido >= 0 ? '+' : ''}${valorLiquido.toFixed(2)} - Novo total: R$ ${existente.valor_liquido.toFixed(2)}`);
             } else {
               // Se não existe, criar novo registro
               equipesMap.set(chave, {
