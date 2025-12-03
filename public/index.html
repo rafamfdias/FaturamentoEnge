@@ -640,8 +640,8 @@
                                 <th>Comunidade</th>
                                 <th>Equipe (BRE)</th>
                                 <th>Qtd Funcionários</th>
-                                <th>Qtd Empenho</th>
                                 <th>Valor do Posto Proporcional</th>
+                                <th>Qtd Empenho</th>
                                 <th>Valor Empenho</th>
                                 <th>Diferença</th>
                                 <th>Status</th>
@@ -650,6 +650,41 @@
                         <tbody id="relatorioBody">
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <h2>🔍 Análise de Funcionários Fora do Empenho</h2>
+                <p style="color: #666; margin-bottom: 20px;">Funcionários cadastrados que não aparecem na planilha de membros do empenho</p>
+                
+                <button class="btn" onclick="analisarForaEmpenho()" style="margin-bottom: 20px;">
+                    📊 Analisar Funcionários
+                </button>
+                
+                <div id="analiseResultado" style="display: none;">
+                    <div class="stats" style="margin-bottom: 20px;">
+                        <div class="stat-card" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);">
+                            <h3 id="totalForaEmpenho">0</h3>
+                            <p>Funcionários Fora do Empenho</p>
+                        </div>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table id="analiseTable">
+                            <thead>
+                                <tr>
+                                    <th>Equipe (BRE)</th>
+                                    <th>Comunidade</th>
+                                    <th>Nome</th>
+                                    <th>Matrícula</th>
+                                    <th>Posto</th>
+                                    <th>Grupo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analiseBody">
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1157,7 +1192,7 @@
                 row.innerHTML = `
                     <td>${item.comunidade || '-'}</td>
                     <td>${item.equipe || '-'}</td>
-                    <td>${parseFloat(item.quantidade_membros || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>${Math.round(parseFloat(item.quantidade_membros || 0))}</td>
                     <td>R$ ${parseFloat(item.valor_liquido || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                 `;
             });
@@ -1204,10 +1239,11 @@
                             empPorEquipe[bre] = {
                                 comunidade: emp.comunidade || 'Não especificado',
                                 equipe: bre,
-                                quantidade: emp.quantidade_membros || 0,
+                                quantidade: 0,
                                 valor: 0
                             };
                         }
+                        empPorEquipe[bre].quantidade += parseFloat(emp.quantidade_membros || 0);
                         empPorEquipe[bre].valor += parseFloat(emp.valor_liquido || 0);
                     });
 
@@ -1237,7 +1273,7 @@
                             gerente: gerente,
                             preposto: preposto,
                             qtdFuncionarios: func.quantidade,
-                            qtdEmpenho: emp.quantidade,
+                            qtdEmpenho: Math.round(emp.quantidade * 100) / 100, // Arredondar para 2 casas decimais
                             quantidadeMembros: Math.max(func.quantidade, emp.quantidade),
                             valorFuncionarios: func.valor,
                             valorEmpenho: emp.valor,
@@ -1407,20 +1443,24 @@
                 
                 row.style = statusColor;
                 
+                const diferencaQtd = item.qtdFuncionarios - item.qtdEmpenho;
+                
                 row.innerHTML = `
                     <td>${item.comunidade || '-'}</td>
                     <td><strong>${item.equipe || '-'}</strong></td>
                     <td style="text-align: center;">
                         <span class="clickable-qty" onclick="showDetalhes('${item.equipe}')">${item.qtdFuncionarios}</span>
                     </td>
-                    <td style="text-align: center;">${item.qtdEmpenho}</td>
                     <td>R$ ${item.valorFuncionarios.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td style="text-align: center; font-weight: bold; color: ${item.qtdEmpenho === item.qtdFuncionarios ? 'green' : 'red'};">
+                        <span class="clickable-qty" onclick="showComparacao('${item.equipe}')">${item.qtdEmpenho}</span>
+                    </td>
                     <td>R$ ${item.valorEmpenho.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     <td style="font-weight: bold; color: ${item.diferenca === 0 ? 'green' : item.diferenca > 0 ? 'blue' : 'red'};">
                         R$ ${item.diferenca.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </td>
                     <td style="text-align: center;">
-                        ${item.diferenca === 0 ? '✅ OK' : item.diferenca > 0 ? '⚠️ Emp > Func' : '⚠️ Func > Emp'}
+                        ${item.diferenca === 0 ? '✅ Valores Batem' : item.diferenca > 0 ? '💰 Sobra no Empenho' : '⚠️ Falta no Empenho'}
                     </td>
                 `;
             });
@@ -1443,12 +1483,21 @@
                 // Atualizar título do modal
                 document.getElementById('modalTitle').textContent = `Detalhes da Equipe ${equipe} (${funcionariosEquipe.length} membros)`;
                 
+                // Pegar quantidade do empenho para esta equipe
+                const empResponse = await fetch('/api/empenho');
+                const empenhos = await empResponse.json();
+                const empenhoEquipe = empenhos.find(emp => emp.equipe === equipe);
+                const qtdEmpenho = empenhoEquipe?.quantidade_membros || 0;
+                const qtdFuncionarios = funcionariosEquipe.length;
+                const diferenca = qtdFuncionarios - qtdEmpenho;
+                
                 // Preencher tabela
                 const tbody = document.getElementById('modalTableBody');
                 tbody.innerHTML = '';
                 
-                funcionariosEquipe.forEach(func => {
+                funcionariosEquipe.forEach((func, index) => {
                     const row = tbody.insertRow();
+                    
                     row.innerHTML = `
                         <td>${func.contrato || '-'}</td>
                         <td>${func.comunidade || '-'}</td>
@@ -1467,6 +1516,122 @@
             } catch (error) {
                 console.error('Erro ao carregar detalhes:', error);
                 alert('Erro ao carregar detalhes dos funcionários.');
+            }
+        }
+
+        // Mostrar comparação entre Funcionários e Empenho
+        async function showComparacao(equipe) {
+            try {
+                const [funcResponse, empResponse, membrosResponse] = await Promise.all([
+                    fetch('/api/funcionarios'),
+                    fetch('/api/empenho'),
+                    fetch(`/api/empenho/membros/${equipe}`)
+                ]);
+                
+                const funcionarios = await funcResponse.json();
+                const empenhos = await empResponse.json();
+                const membrosEmpenho = await membrosResponse.json();
+                
+                console.log('Membros do empenho:', membrosEmpenho);
+                
+                // Filtrar funcionários da equipe
+                const funcionariosEquipe = funcionarios.filter(func => func.time_bre === equipe);
+                
+                // Pegar quantidade do empenho para esta equipe
+                const empenhoEquipe = empenhos.find(emp => emp.equipe === equipe);
+                const qtdEmpenho = empenhoEquipe?.quantidade_membros || 0;
+                const qtdFuncionarios = funcionariosEquipe.length;
+                const diferenca = qtdFuncionarios - qtdEmpenho;
+                
+                // Criar conjunto de matrículas dos membros do empenho (tentar várias formas de comparação)
+                const matriculasEmpenho = new Set();
+                const nomesEmpenho = new Set();
+                
+                membrosEmpenho.forEach(m => {
+                    // Adicionar matrícula em várias formas
+                    if (m.matricula) {
+                        const mat = String(m.matricula).trim().toUpperCase();
+                        matriculasEmpenho.add(mat);
+                        // Remover prefixo (F, P, etc) se houver
+                        const semPrefixo = mat.replace(/^[A-Z]/, '');
+                        if (semPrefixo !== mat) {
+                            matriculasEmpenho.add(semPrefixo);
+                        }
+                        // Adicionar com F no início
+                        matriculasEmpenho.add('F' + semPrefixo);
+                        // Adicionar com P no início
+                        matriculasEmpenho.add('P' + semPrefixo);
+                    }
+                    // Adicionar nome normalizado
+                    if (m.nome) {
+                        nomesEmpenho.add(String(m.nome).trim().toUpperCase());
+                    }
+                });
+                
+                console.log('Matrículas no empenho:', Array.from(matriculasEmpenho));
+                console.log('Nomes no empenho:', Array.from(nomesEmpenho));
+                
+                // Atualizar título do modal
+                let titulo = `Comparação - Equipe ${equipe}`;
+                if (diferenca > 0) {
+                    titulo += ` (${diferenca} funcionário(s) a mais que o empenho)`;
+                } else if (diferenca < 0) {
+                    titulo += ` (${Math.abs(diferenca)} funcionário(s) a menos que o empenho)`;
+                } else {
+                    titulo += ` (Quantidades batem!)`;
+                }
+                
+                document.getElementById('modalTitle').textContent = titulo;
+                
+                // Preencher tabela
+                const tbody = document.getElementById('modalTableBody');
+                tbody.innerHTML = '';
+                
+                if (funcionariosEquipe.length === 0) {
+                    const row = tbody.insertRow();
+                    row.innerHTML = '<td colspan="9" style="text-align: center;">Nenhum funcionário cadastrado nesta equipe</td>';
+                } else {
+                    funcionariosEquipe.forEach((func, index) => {
+                        const row = tbody.insertRow();
+                        
+                        // Verificar se o funcionário está na lista de membros do empenho
+                        const matriculaFunc = String(func.matricula || '').trim().toUpperCase();
+                        const nomeFunc = String(func.nome || '').trim().toUpperCase();
+                        
+                        // Tentar encontrar por matrícula (com ou sem prefixo) ou por nome
+                        const semPrefixoFunc = matriculaFunc.replace(/^[A-Z]/, '');
+                        const estaNoEmpenho = matriculasEmpenho.has(matriculaFunc) || 
+                                             matriculasEmpenho.has(semPrefixoFunc) ||
+                                             matriculasEmpenho.has('F' + semPrefixoFunc) ||
+                                             matriculasEmpenho.has('P' + semPrefixoFunc) ||
+                                             nomesEmpenho.has(nomeFunc);
+                        
+                        console.log(`Funcionário: ${func.nome} (${matriculaFunc}) - Está no empenho: ${estaNoEmpenho}`);
+                        
+                        // Se o funcionário não está no empenho, destacar em vermelho
+                        if (!estaNoEmpenho) {
+                            row.style.backgroundColor = '#ffcccc';
+                        }
+                        
+                        row.innerHTML = `
+                            <td>${func.contrato || '-'}</td>
+                            <td>${func.comunidade || '-'}</td>
+                            <td>${func.gerente || '-'}</td>
+                            <td>${func.preposto || '-'}</td>
+                            <td>${func.nome || '-'}</td>
+                            <td>${func.matricula || '-'}</td>
+                            <td>${func.posto || '-'}</td>
+                            <td>${func.grupo || '-'}</td>
+                            <td>R$ ${parseFloat(func.valor_proporcional || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        `;
+                    });
+                }
+                
+                // Exibir modal
+                document.getElementById('detalhesModal').style.display = 'flex';
+            } catch (error) {
+                console.error('Erro ao carregar comparação:', error);
+                alert('Erro ao carregar comparação de dados.');
             }
         }
 
@@ -1500,6 +1665,49 @@
 
         function showLoadingRelatorio(show) {
             document.getElementById('loadingRelatorio').classList.toggle('show', show);
+        }
+
+        // Analisar funcionários fora do empenho
+        async function analisarForaEmpenho() {
+            try {
+                const response = await fetch('/api/empenho/analise/fora-empenho');
+                const resultado = await response.json();
+                
+                if (response.ok) {
+                    // Atualizar total
+                    document.getElementById('totalForaEmpenho').textContent = resultado.total;
+                    
+                    // Exibir resultado
+                    document.getElementById('analiseResultado').style.display = 'block';
+                    
+                    // Preencher tabela
+                    const tbody = document.getElementById('analiseBody');
+                    tbody.innerHTML = '';
+                    
+                    if (resultado.funcionarios.length === 0) {
+                        const row = tbody.insertRow();
+                        row.innerHTML = '<td colspan="6" style="text-align: center; color: green; font-weight: bold;">✅ Todos os funcionários estão no empenho!</td>';
+                    } else {
+                        resultado.funcionarios.forEach(func => {
+                            const row = tbody.insertRow();
+                            row.style.backgroundColor = '#ffebee';
+                            row.innerHTML = `
+                                <td><strong>${func.time_bre || '-'}</strong></td>
+                                <td>${func.comunidade || '-'}</td>
+                                <td>${func.nome || '-'}</td>
+                                <td>${func.matricula || '-'}</td>
+                                <td>${func.posto || '-'}</td>
+                                <td>${func.grupo || '-'}</td>
+                            `;
+                        });
+                    }
+                } else {
+                    alert('Erro ao carregar análise: ' + resultado.error);
+                }
+            } catch (error) {
+                console.error('Erro ao analisar:', error);
+                alert('Erro ao analisar funcionários fora do empenho.');
+            }
         }
     </script>
 </body>

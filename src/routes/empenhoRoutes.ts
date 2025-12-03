@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { processarPlanilhaEmpenho, listarEmpenhos, obterTotalEmpenho } from '../services/empenhoService';
+import { processarPlanilhaEmpenho, listarEmpenhos, obterTotalEmpenho, listarMembrosEmpenho, analisarFuncionariosForaEmpenho } from '../services/empenhoService';
 import { obterTotalValorProporcional } from '../services/planilhaService';
 
 const router = Router();
@@ -82,6 +82,29 @@ router.get('/relatorio', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erro ao gerar relatório:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Listar membros do empenho por equipe
+router.get('/membros/:equipe?', async (req: Request, res: Response) => {
+  try {
+    const { equipe } = req.params;
+    const membros = await listarMembrosEmpenho(equipe);
+    res.json(membros);
+  } catch (error: any) {
+    console.error('Erro ao listar membros do empenho:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Analisar funcionários que não estão no empenho
+router.get('/analise/fora-empenho', async (req: Request, res: Response) => {
+  try {
+    const resultado = await analisarFuncionariosForaEmpenho();
+    res.json(resultado);
+  } catch (error: any) {
+    console.error('Erro ao analisar funcionários fora do empenho:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -8,6 +8,13 @@ interface EmpenhoData {
   valor_liquido?: number;
 }
 
+interface MembroEmpenho {
+  comunidade?: string;
+  equipe?: string;
+  nome?: string;
+  matricula?: string;
+}
+
 export const processarPlanilhaEmpenho = async (filePath: string) => {
   console.log('🔄 Iniciando processamento da planilha de empenho...');
   console.log('📁 Arquivo:', filePath);
@@ -46,8 +53,9 @@ export const processarPlanilhaEmpenho = async (filePath: string) => {
     let registrosImportados = 0;
     const erros: string[] = [];
 
-    // Limpar tabela antes de importar novos dados
+    // Limpar tabelas antes de importar novos dados
     await pool.query('DELETE FROM empenhos');
+    await pool.query('DELETE FROM membros_empenho');
     
     let comunidadeAtual = '';
     let dentroDeTabelaEquipe = false;
@@ -188,6 +196,9 @@ export const processarPlanilhaEmpenho = async (filePath: string) => {
     
     console.log(`✅ Processamento concluído: ${registrosImportados} registros importados`);
     
+    // Processar aba "Membros Equipes"
+    await processarMembrosEquipes(workbook);
+    
     return {
       registros_importados: registrosImportados,
       total_linhas: range.e.r - range.s.r + 1,
@@ -198,6 +209,100 @@ export const processarPlanilhaEmpenho = async (filePath: string) => {
     throw new Error(`Erro ao processar planilha: ${error.message}`);
   }
 };
+
+const processarMembrosEquipes = async (workbook: XLSX.WorkBook) => {
+  console.log('\n🔄 Processando aba "Membros Equipes"...');
+  console.log('📋 Abas disponíveis na planilha:', workbook.SheetNames);
+  
+  // Procurar pela aba "Membros Equipes" com várias variações possíveis
+  let sheetName = workbook.SheetNames.find(name => {
+    const nameLower = name.toLowerCase().trim();
+    console.log(`Verificando aba: "${name}" (lowercase: "${nameLower}")`);
+    
+    // Tentar várias combinações
+    return nameLower.includes('membros equipes') ||
+           nameLower.includes('membrosequipes') ||
+           nameLower.includes('membros_equipes') ||
+           nameLower.includes('membros das equipes') ||
+           nameLower.includes('membros de equipes') ||
+           (nameLower.includes('membro') && nameLower.includes('equipe'));
+  });
+  
+  if (!sheetName) {
+    console.log('⚠️ Aba "Membros Equipes" não encontrada');
+    console.log('💡 Tentando segunda aba como alternativa...');
+    // Se não encontrar, tentar usar a segunda aba (índice 1)
+    if (workbook.SheetNames.length > 1) {
+      sheetName = workbook.SheetNames[1];
+      console.log(`📋 Usando segunda aba: ${sheetName}`);
+    } else {
+      console.log('❌ Não há segunda aba disponível');
+      return;
+    }
+  } else {
+    console.log(`✅ Aba encontrada: ${sheetName}`);
+  }
+  
+  const worksheet = workbook.Sheets[sheetName];
+  const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+  
+  let comunidadeAtual = '';
+  let registrosImportados = 0;
+  
+  // Percorrer todas as linhas
+  for (let row = range.s.r; row <= range.e.r; row++) {
+    try {
+      // Procurar por "Comunidade" na linha
+      for (let col = 0; col <= range.e.c; col++) {
+        const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: col })];
+        if (cell && String(cell.v).toLowerCase().includes('comunidade')) {
+          // Procurar o nome da comunidade na próxima célula com conteúdo
+          for (let nextCol = col + 1; nextCol <= range.e.c; nextCol++) {
+            const nextCell = worksheet[XLSX.utils.encode_cell({ r: row, c: nextCol })];
+            if (nextCell && nextCell.v && String(nextCell.v).trim() !== '') {
+              comunidadeAtual = String(nextCell.v).trim();
+              console.log(`📍 Comunidade: ${comunidadeAtual}`);
+              break;
+            }
+          }
+          break;
+        }
+      }
+      
+      // Verificar se é linha de dados (tem BRE na coluna B - Equipe)
+      const cellB = worksheet[XLSX.utils.encode_cell({ r: row, c: 1 })];
+      if (cellB && cellB.v && String(cellB.v).startsWith('BRE')) {
+        const equipe = String(cellB.v).trim();
+        
+        // Matrícula na coluna C
+        const cellC = worksheet[XLSX.utils.encode_cell({ r: row, c: 2 })];
+        const matricula = cellC && cellC.v ? String(cellC.v).trim() : '';
+        
+        // Nome na coluna D
+        const cellD = worksheet[XLSX.utils.encode_cell({ r: row, c: 3 })];
+        const nome = cellD && cellD.v ? String(cellD.v).trim() : '';
+        
+        console.log(`Linha ${row + 1}: Equipe=${equipe}, Matricula=${matricula}, Nome=${nome}`);
+        
+        if (nome && !nome.toLowerCase().includes('nome') && nome !== 'Nome do Membro') {
+          console.log(`👤 Inserindo: ${equipe} - ${nome} (${matricula})`);
+          
+          await pool.query(
+            `INSERT INTO membros_empenho (comunidade, equipe, nome, matricula) 
+             VALUES (?, ?, ?, ?)`,
+            [comunidadeAtual || 'Não especificado', equipe, nome, matricula]
+          );
+          
+          registrosImportados++;
+        }
+      }
+    } catch (error: any) {
+      console.error(`❌ Erro na linha ${row + 1}:`, error.message);
+    }
+  }
+  
+  console.log(`✅ Membros importados: ${registrosImportados}`);
+}
 
 export const listarEmpenhos = async () => {
   try {
@@ -214,5 +319,63 @@ export const obterTotalEmpenho = async () => {
     return parseFloat(result.rows[0].total);
   } catch (error: any) {
     throw new Error(`Erro ao calcular total de empenho: ${error.message}`);
+  }
+};
+
+export const listarMembrosEmpenho = async (equipe?: string) => {
+  try {
+    if (equipe) {
+      const result = await pool.query(
+        'SELECT * FROM membros_empenho WHERE equipe = ? ORDER BY nome',
+        [equipe]
+      );
+      return result.rows;
+    } else {
+      const result = await pool.query('SELECT * FROM membros_empenho ORDER BY equipe, nome');
+      return result.rows;
+    }
+  } catch (error: any) {
+    throw new Error(`Erro ao listar membros do empenho: ${error.message}`);
+  }
+};
+
+export const analisarFuncionariosForaEmpenho = async () => {
+  try {
+    // Buscar todos os funcionários
+    const funcionariosResult = await pool.query('SELECT * FROM funcionarios ORDER BY time_bre, nome');
+    const funcionarios = funcionariosResult.rows;
+    
+    // Buscar todos os membros do empenho
+    const membrosResult = await pool.query('SELECT * FROM membros_empenho');
+    const membrosEmpenho = membrosResult.rows;
+    
+    // Criar um Set de matrículas do empenho para busca rápida
+    const matriculasEmpenho = new Set(
+      membrosEmpenho.map(m => String(m.matricula).trim().toUpperCase())
+    );
+    
+    // Filtrar funcionários que não estão no empenho
+    const funcionariosForaEmpenho = funcionarios.filter(func => {
+      const matriculaFunc = String(func.matricula || '').trim().toUpperCase();
+      return !matriculasEmpenho.has(matriculaFunc);
+    });
+    
+    // Agrupar por equipe
+    const porEquipe: { [key: string]: any[] } = {};
+    funcionariosForaEmpenho.forEach(func => {
+      const equipe = func.time_bre || 'Sem Equipe';
+      if (!porEquipe[equipe]) {
+        porEquipe[equipe] = [];
+      }
+      porEquipe[equipe].push(func);
+    });
+    
+    return {
+      total: funcionariosForaEmpenho.length,
+      funcionarios: funcionariosForaEmpenho,
+      porEquipe: porEquipe
+    };
+  } catch (error: any) {
+    throw new Error(`Erro ao analisar funcionários fora do empenho: ${error.message}`);
   }
 };
