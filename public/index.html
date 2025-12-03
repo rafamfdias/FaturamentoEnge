@@ -639,8 +639,9 @@
                             <tr>
                                 <th>Comunidade</th>
                                 <th>Equipe (BRE)</th>
-                                <th>Qtd. Membros</th>
-                                <th>Valor Funcionários</th>
+                                <th>Qtd Funcionários</th>
+                                <th>Qtd Empenho</th>
+                                <th>Valor do Posto Proporcional</th>
                                 <th>Valor Empenho</th>
                                 <th>Diferença</th>
                                 <th>Status</th>
@@ -1235,6 +1236,8 @@
                             equipe: bre,
                             gerente: gerente,
                             preposto: preposto,
+                            qtdFuncionarios: func.quantidade,
+                            qtdEmpenho: emp.quantidade,
                             quantidadeMembros: Math.max(func.quantidade, emp.quantidade),
                             valorFuncionarios: func.valor,
                             valorEmpenho: emp.valor,
@@ -1408,8 +1411,9 @@
                     <td>${item.comunidade || '-'}</td>
                     <td><strong>${item.equipe || '-'}</strong></td>
                     <td style="text-align: center;">
-                        <span class="clickable-qty" onclick="showDetalhes('${item.equipe}')">${item.quantidadeMembros}</span>
+                        <span class="clickable-qty" onclick="showDetalhes('${item.equipe}')">${item.qtdFuncionarios}</span>
                     </td>
+                    <td style="text-align: center;">${item.qtdEmpenho}</td>
                     <td>R$ ${item.valorFuncionarios.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     <td>R$ ${item.valorEmpenho.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     <td style="font-weight: bold; color: ${item.diferenca === 0 ? 'green' : item.diferenca > 0 ? 'blue' : 'red'};">
