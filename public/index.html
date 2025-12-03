@@ -323,9 +323,9 @@
         </div>
 
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('funcionarios')">📋 Funcionários</button>
-            <button class="tab" onclick="switchTab('empenho')">💰 Empenho</button>
-            <button class="tab" onclick="switchTab('relatorio')">📊 Relatório</button>
+            <button class="tab active" onclick="switchTab('funcionarios')">Funcionários</button>
+            <button class="tab" onclick="switchTab('empenho')">Empenho</button>
+            <button class="tab" onclick="switchTab('relatorio')">Relatório</button>
         </div>
 
         <div id="funcionarios-tab" class="tab-content active">
@@ -346,13 +346,13 @@
 
             <div class="actions">
                 <button class="btn" id="uploadBtn" onclick="uploadFile()" disabled>
-                    ⬆️ Enviar Planilha
+                    Enviar Planilha
                 </button>
                 <button class="btn btn-secondary" onclick="loadData()">
-                    🔄 Atualizar Dados
+                    Atualizar Dados
                 </button>
                 <button class="btn btn-danger" onclick="clearData()">
-                    🗑️ Limpar Dados
+                    Limpar Dados
                 </button>
             </div>
 
@@ -386,7 +386,7 @@
                     </div>
                     <div style="display: flex; align-items: flex-end;">
                         <button class="btn" onclick="clearFilters()" style="width: 100%; padding: 8px;">
-                            🔄 Limpar Filtros
+                            Limpar Filtros
                         </button>
                     </div>
                 </div>
@@ -460,10 +460,10 @@
 
                 <div class="actions">
                     <button class="btn" id="uploadBtnEmpenho" onclick="uploadEmpenho()" disabled>
-                        ⬆️ Enviar Empenho
+                        Enviar Empenho
                     </button>
                     <button class="btn btn-secondary" onclick="loadEmpenho()">
-                        🔄 Atualizar Dados
+                        Atualizar Dados
                     </button>
                 </div>
 
@@ -477,6 +477,28 @@
 
             <div class="card" id="empenhoCard" style="display: none;">
                 <h2>💰 Dados de Empenho</h2>
+                
+                <div style="margin-bottom: 20px; padding: 20px; background: #f8f9ff; border-radius: 10px;">
+                    <h3 style="text-align: center; color: #667eea; margin-bottom: 15px;">🔍 Filtros de Empenho</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div>
+                            <label style="font-weight: bold; display: block; margin-bottom: 5px;">Comunidade:</label>
+                            <input type="text" id="comunidadeFilterEmpenho" list="comunidadeListEmpenho" oninput="applyEmpenhoFilters()" placeholder="Digite ou selecione..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                            <datalist id="comunidadeListEmpenho"></datalist>
+                        </div>
+                        <div>
+                            <label style="font-weight: bold; display: block; margin-bottom: 5px;">Equipe (BRE):</label>
+                            <input type="text" id="equipeFilterEmpenho" list="equipeListEmpenho" oninput="applyEmpenhoFilters()" placeholder="Digite ou selecione..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                            <datalist id="equipeListEmpenho"></datalist>
+                        </div>
+                        <div style="display: flex; align-items: flex-end;">
+                            <button class="btn" onclick="clearEmpenhoFilters()" style="width: 100%; padding: 8px;">
+                                Limpar Filtros
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="table-container">
                     <table id="empenhoTable">
                         <thead>
@@ -906,6 +928,7 @@
 
                 if (response.ok) {
                     allEmpenhoData = data;
+                    populateEmpenhoFilters(data);
                     displayEmpenho(data);
                     document.getElementById('empenhoCard').style.display = 'block';
                 } else {
@@ -916,6 +939,68 @@
             } finally {
                 showLoadingEmpenho(false);
             }
+        }
+
+        // Popular filtros de empenho
+        function populateEmpenhoFilters(data) {
+            const comunidadeSet = new Set();
+            const equipeSet = new Set();
+            
+            data.forEach(item => {
+                if (item.comunidade && item.comunidade !== '-') {
+                    comunidadeSet.add(item.comunidade);
+                }
+                if (item.equipe && item.equipe !== '-') {
+                    equipeSet.add(item.equipe);
+                }
+            });
+            
+            // Popular datalist de comunidades
+            const comunidadeList = document.getElementById('comunidadeListEmpenho');
+            comunidadeList.innerHTML = '';
+            Array.from(comunidadeSet).sort().forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                comunidadeList.appendChild(option);
+            });
+            
+            // Popular datalist de equipes
+            const equipeList = document.getElementById('equipeListEmpenho');
+            equipeList.innerHTML = '';
+            Array.from(equipeSet).sort().forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                equipeList.appendChild(option);
+            });
+        }
+
+        // Aplicar filtros de empenho
+        function applyEmpenhoFilters() {
+            const comunidadeFilter = document.getElementById('comunidadeFilterEmpenho').value.trim().toLowerCase();
+            const equipeFilter = document.getElementById('equipeFilterEmpenho').value.trim().toLowerCase();
+            
+            let filteredData = allEmpenhoData;
+            
+            if (comunidadeFilter) {
+                filteredData = filteredData.filter(item => 
+                    (item.comunidade || '').toLowerCase().includes(comunidadeFilter)
+                );
+            }
+            
+            if (equipeFilter) {
+                filteredData = filteredData.filter(item => 
+                    (item.equipe || '').toLowerCase().includes(equipeFilter)
+                );
+            }
+            
+            displayEmpenho(filteredData);
+        }
+
+        // Limpar filtros de empenho
+        function clearEmpenhoFilters() {
+            document.getElementById('comunidadeFilterEmpenho').value = '';
+            document.getElementById('equipeFilterEmpenho').value = '';
+            displayEmpenho(allEmpenhoData);
         }
 
         // Exibir dados de empenho
