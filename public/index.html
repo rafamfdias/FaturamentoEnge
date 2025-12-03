@@ -619,6 +619,11 @@
                             <datalist id="equipeListRelatorio"></datalist>
                         </div>
                         <div>
+                            <label style="font-weight: bold; display: block; margin-bottom: 5px;">Filtrar por Gerente:</label>
+                            <input type="text" id="gerenteFilterRelatorio" list="gerenteListRelatorio" oninput="applyRelatorioFilters()" placeholder="Digite para filtrar..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
+                            <datalist id="gerenteListRelatorio"></datalist>
+                        </div>
+                        <div>
                             <label style="font-weight: bold; display: block; margin-bottom: 5px;">Filtrar por Preposto:</label>
                             <input type="text" id="prepostoFilterRelatorio" list="prepostoListRelatorio" oninput="applyRelatorioFilters()" placeholder="Digite para filtrar..." style="width: 100%; padding: 8px; border-radius: 5px; border: 2px solid #667eea;">
                             <datalist id="prepostoListRelatorio"></datalist>
@@ -1216,9 +1221,10 @@
                         const func = funcPorEquipe[bre] || { comunidade: empPorEquipe[bre]?.comunidade || 'Não especificado', equipe: bre, quantidade: 0, valor: 0 };
                         const emp = empPorEquipe[bre] || { comunidade: funcPorEquipe[bre]?.comunidade || 'Não especificado', equipe: bre, quantidade: 0, valor: 0 };
                         
-                        // Pegar preposto da primeira pessoa da equipe
+                        // Pegar preposto e gerente da primeira pessoa da equipe
                         const primeiroFunc = funcionarios.find(f => f.time_bre === bre);
                         const preposto = primeiroFunc?.preposto || 'Não especificado';
+                        const gerente = primeiroFunc?.gerente || 'Não especificado';
                         
                         const diferenca = emp.valor - func.valor;  // Invertido: Empenho - Funcionários
                         totalFunc += func.valor;
@@ -1227,6 +1233,7 @@
                         relatorioData.push({
                             comunidade: func.comunidade || emp.comunidade,
                             equipe: bre,
+                            gerente: gerente,
                             preposto: preposto,
                             quantidadeMembros: Math.max(func.quantidade, emp.quantidade),
                             valorFuncionarios: func.valor,
@@ -1258,6 +1265,7 @@
         function populateRelatorioFilters(data) {
             const comunidadeSet = new Set();
             const equipeSet = new Set();
+            const gerenteSet = new Set();
             const prepostoSet = new Set();
             
             data.forEach(item => {
@@ -1266,6 +1274,9 @@
                 }
                 if (item.equipe && item.equipe !== 'Sem Equipe') {
                     equipeSet.add(item.equipe);
+                }
+                if (item.gerente && item.gerente !== 'Não especificado') {
+                    gerenteSet.add(item.gerente);
                 }
                 if (item.preposto && item.preposto !== 'Não especificado') {
                     prepostoSet.add(item.preposto);
@@ -1290,6 +1301,15 @@
                 equipeList.appendChild(option);
             });
 
+            // Popular datalist de gerentes
+            const gerenteList = document.getElementById('gerenteListRelatorio');
+            gerenteList.innerHTML = '';
+            Array.from(gerenteSet).sort().forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                gerenteList.appendChild(option);
+            });
+
             // Popular datalist de prepostos
             const prepostoList = document.getElementById('prepostoListRelatorio');
             prepostoList.innerHTML = '';
@@ -1304,6 +1324,7 @@
         function applyRelatorioFilters() {
             const comunidadeFilter = document.getElementById('comunidadeFilterRelatorio').value.trim().toLowerCase();
             const equipeFilter = document.getElementById('equipeFilterRelatorio').value.trim().toLowerCase();
+            const gerenteFilter = document.getElementById('gerenteFilterRelatorio').value.trim().toLowerCase();
             const prepostoFilter = document.getElementById('prepostoFilterRelatorio').value.trim().toLowerCase();
             
             let filteredData = relatorioData;
@@ -1317,6 +1338,12 @@
             if (equipeFilter) {
                 filteredData = filteredData.filter(item => 
                     (item.equipe || '').toLowerCase().includes(equipeFilter)
+                );
+            }
+
+            if (gerenteFilter) {
+                filteredData = filteredData.filter(item => 
+                    (item.gerente || '').toLowerCase().includes(gerenteFilter)
                 );
             }
 
@@ -1348,6 +1375,7 @@
         function clearRelatorioFilters() {
             document.getElementById('comunidadeFilterRelatorio').value = '';
             document.getElementById('equipeFilterRelatorio').value = '';
+            document.getElementById('gerenteFilterRelatorio').value = '';
             document.getElementById('prepostoFilterRelatorio').value = '';
             displayRelatorio(relatorioData);
         }
