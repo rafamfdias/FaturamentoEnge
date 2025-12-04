@@ -1,5 +1,7 @@
 import * as XLSX from 'xlsx';
+import path from 'path';
 import { pool } from '../config/database';
+import { extrairMesReferencia } from '../utils/mesReferencia';
 
 interface EmpenhoData {
   comunidade?: string;
@@ -8,9 +10,14 @@ interface EmpenhoData {
   valor_liquido?: number;
 }
 
-export const processarPlanilhaEmpenho = async (filePath: string) => {
+export const processarPlanilhaEmpenho = async (filePath: string, mesReferencia: string | null, nomeOriginal?: string) => {
   console.log('🔄 Iniciando processamento da planilha de empenho...');
   console.log('📁 Arquivo:', filePath);
+  
+  const nomeArquivo = nomeOriginal || path.basename(filePath);
+  const mesRef = mesReferencia || extrairMesReferencia(nomeArquivo);
+  console.log(`📅 Mês detectado de "${nomeArquivo}": ${mesRef}`);
+  const mesReferenciaFinal = mesRef;
   
   try {
     const workbook = XLSX.readFile(filePath);
@@ -46,8 +53,12 @@ export const processarPlanilhaEmpenho = async (filePath: string) => {
     let registrosImportados = 0;
     const erros: string[] = [];
 
-    // Limpar tabela antes de importar novos dados
-    await pool.query('DELETE FROM empenhos');
+    // Limpar dados anteriores do mesmo mês
+    const deleteEmpenhos = pool.prepare('DELETE FROM empenhos WHERE mes_referencia = ?');
+    const deleteMembros = pool.prepare('DELETE FROM membros_empenho WHERE mes_referencia = ?');
+    await deleteEmpenhos.run(mesReferenciaFinal);
+    await deleteMembros.run(mesReferenciaFinal);
+    console.log(`🗑️ Dados anteriores do mês ${mesReferenciaFinal} removidos`);
     
     let comunidadeAtual = '';
     let dentroDeTabelaEquipe = false;
@@ -173,11 +184,11 @@ export const processarPlanilhaEmpenho = async (filePath: string) => {
       try {
         console.log(`💾 Inserindo: ${empenho.comunidade} | ${empenho.equipe} | ${empenho.quantidade_membros} membros | R$ ${empenho.valor_liquido?.toFixed(2)}`);
 
-        await pool.query(
-          `INSERT INTO empenhos (comunidade, equipe, quantidade_membros, valor_liquido) 
-           VALUES (?, ?, ?, ?)`,
-          [empenho.comunidade, empenho.equipe, empenho.quantidade_membros, empenho.valor_liquido]
-        );
+        const stmt = pool.prepare(`
+          INSERT INTO empenhos (mes_referencia, comunidade, equipe, quantidade_membros, valor_liquido)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+        await stmt.run(mesReferenciaFinal, empenho.comunidade, empenho.equipe, empenho.quantidade_membros, empenho.valor_liquido);
 
         registrosImportados++;
       } catch (insertError: any) {
@@ -187,6 +198,9 @@ export const processarPlanilhaEmpenho = async (filePath: string) => {
     }
     
     console.log(`✅ Processamento concluído: ${registrosImportados} registros importados`);
+    
+    // Processar aba "Membro" se existir
+    await processarAbaMembros(workbook, mesReferenciaFinal);
     
     return {
       registros_importados: registrosImportados,
@@ -199,21 +213,126 @@ export const processarPlanilhaEmpenho = async (filePath: string) => {
   }
 };
 
-export const listarEmpenhos = async () => {
+// Processar aba "Membros Equipes" com lista detalhada de membros por equipe
+async function processarAbaMembros(workbook: XLSX.WorkBook, mesReferencia: string) {
+  console.log('\n📋 Processando aba de Membros...');
+  
+  // Procurar aba "Membros Equipes" ou variações
+  let sheetNameMembro = workbook.SheetNames.find(name => 
+    name.toLowerCase().includes('membro') || 
+    name.toLowerCase().includes('equipe')
+  );
+  
+  if (!sheetNameMembro) {
+    console.log('⚠️ Aba de Membros não encontrada. Pulando...');
+    return;
+  }
+  
+  console.log(`✅ Aba encontrada: ${sheetNameMembro}`);
+  
+  const worksheet = workbook.Sheets[sheetNameMembro];
+  const data = XLSX.utils.sheet_to_json(worksheet);
+  
+  if (data.length === 0) {
+    console.log('⚠️ Aba de membros está vazia');
+    return;
+  }
+  
+  console.log(`📊 Total de linhas na aba: ${data.length}`);
+  
+  let membrosSalvos = 0;
+  
+  // Log das colunas encontradas
+  if (data.length > 0) {
+    console.log('📋 Colunas encontradas:', Object.keys(data[0] as any));
+  }
+  
+  for (const row of data as any[]) {
+    try {
+      // Ler colunas da planilha "Membros Equipes"
+      // A planilha não tem cabeçalho, então usa __EMPTY, __EMPTY_1, etc
+      const termo = row['Detalhamento dos Membros das Equipes do Termos Empenhados'] || '';
+      const equipe = row['__EMPTY'] || row['Equipe'] || row['BRE'] || '';
+      const matricula = row['__EMPTY_1'] || row['Matricula'] || '';
+      const nome = row['__EMPTY_2'] || row['Nome'] || '';
+      
+      // Log das primeiras linhas para debug
+      if (membrosSalvos < 3) {
+        console.log(`🔍 Linha ${membrosSalvos + 1}:`, { termo, equipe, matricula, nome });
+      }
+      
+      // Pular linhas sem equipe ou nome (ou com nome "-")
+      if (!equipe || !nome || nome === '-') {
+        continue;
+      }
+      
+      // Normalizar equipe (remover espaços)
+      const equipeLimpa = String(equipe).trim();
+      const nomeLimpo = String(nome).trim();
+      const matriculaLimpa = String(matricula).trim();
+      
+      console.log(`📝 Salvando: ${equipeLimpa} - ${nomeLimpo} (${matriculaLimpa})`);
+      
+      // Inserir membro no banco
+      const stmt = pool.prepare(`
+        INSERT INTO membros_empenho (mes_referencia, comunidade, equipe, nome, matricula)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      
+      await stmt.run(mesReferencia, termo || '', equipeLimpa, nomeLimpo, matriculaLimpa);
+      membrosSalvos++;
+      
+    } catch (error: any) {
+      console.error(`❌ Erro ao processar membro: ${error.message}`);
+    }
+  }
+  
+  console.log(`✅ ${membrosSalvos} membros salvos no banco de dados`);
+}
+
+export const listarEmpenhos = async (mesReferencia?: string) => {
   try {
-    const result = await pool.query('SELECT * FROM empenhos ORDER BY created_at DESC');
+    if (mesReferencia) {
+      const result = await pool.query('SELECT * FROM empenhos WHERE mes_referencia = ? ORDER BY created_at DESC', [mesReferencia]);
+      return result.rows;
+    }
+    const result = await pool.query(`
+      SELECT * FROM empenhos 
+      WHERE mes_referencia = (SELECT MAX(mes_referencia) FROM empenhos)
+      ORDER BY created_at DESC
+    `);
     return result.rows;
   } catch (error: any) {
     throw new Error(`Erro ao listar empenhos: ${error.message}`);
   }
 };
 
-export const obterTotalEmpenho = async () => {
+export const obterTotalEmpenho = async (mesReferencia?: string) => {
   try {
-    const result = await pool.query('SELECT COALESCE(SUM(valor_liquido), 0) as total FROM empenhos');
+    if (mesReferencia) {
+      const result = await pool.query('SELECT COALESCE(SUM(valor_liquido), 0) as total FROM empenhos WHERE mes_referencia = ?', [mesReferencia]);
+      return parseFloat(result.rows[0].total);
+    }
+    const result = await pool.query(`
+      SELECT COALESCE(SUM(valor_liquido), 0) as total FROM empenhos
+      WHERE mes_referencia = (SELECT MAX(mes_referencia) FROM empenhos)
+    `);
     return parseFloat(result.rows[0].total);
   } catch (error: any) {
     throw new Error(`Erro ao calcular total de empenho: ${error.message}`);
+  }
+};
+
+export const listarMesesDisponiveisEmpenho = async () => {
+  try {
+    const result = await pool.query(`
+      SELECT DISTINCT mes_referencia 
+      FROM empenhos 
+      ORDER BY mes_referencia DESC
+    `);
+    return result.rows.map(row => row.mes_referencia);
+  } catch (error: any) {
+    throw new Error(`Erro ao listar meses disponíveis: ${error.message}`);
   }
 };
 

@@ -13,7 +13,8 @@ router.post('/upload', upload.single('planilha'), async (req: Request, res: Resp
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     }
 
-    const resultado = await planilhaService.processarPlanilha(req.file.path);
+    const mesReferencia = req.body.mesReferencia || null;
+    const resultado = await planilhaService.processarPlanilha(req.file.path, mesReferencia, req.file.originalname);
 
     // Remover arquivo após processamento
     fs.unlinkSync(req.file.path);
@@ -36,7 +37,8 @@ router.post('/upload', upload.single('planilha'), async (req: Request, res: Resp
 // Listar todos os funcionários
 router.get('/funcionarios', async (req: Request, res: Response) => {
   try {
-    const funcionarios = await planilhaService.listarFuncionarios();
+    const { mesReferencia } = req.query;
+    const funcionarios = await planilhaService.listarFuncionarios(mesReferencia as string);
     res.json(funcionarios);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -46,7 +48,8 @@ router.get('/funcionarios', async (req: Request, res: Response) => {
 // Obter total do valor proporcional
 router.get('/total', async (req: Request, res: Response) => {
   try {
-    const total = await planilhaService.obterTotalValorProporcional();
+    const { mesReferencia } = req.query;
+    const total = await planilhaService.obterTotalValorProporcional(mesReferencia as string);
     res.json({ total });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -58,6 +61,16 @@ router.delete('/funcionarios', async (req: Request, res: Response) => {
   try {
     await planilhaService.limparDados();
     res.json({ message: 'Todos os dados foram removidos' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Listar meses disponíveis
+router.get('/meses', async (req: Request, res: Response) => {
+  try {
+    const meses = await planilhaService.listarMesesDisponiveis();
+    res.json(meses);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

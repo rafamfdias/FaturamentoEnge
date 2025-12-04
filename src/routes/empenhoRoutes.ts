@@ -2,10 +2,11 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { processarPlanilhaEmpenho, listarEmpenhos, obterTotalEmpenho, listarMembrosEmpenho, analisarFuncionariosForaEmpenho } from '../services/empenhoService';
-import { obterTotalValorProporcional } from '../services/planilhaService';
+import { processarPlanilhaEmpenho, listarEmpenhos, obterTotalEmpenho, listarMembrosEmpenho, analisarFuncionariosForaEmpenho, listarMesesDisponiveisEmpenho } from '../services/empenhoService';
+import { PlanilhaService } from '../services/planilhaService';
 
 const router = Router();
+const planilhaService = new PlanilhaService();
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -42,7 +43,8 @@ router.post('/upload', upload.single('planilha'), async (req: Request, res: Resp
       return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
     }
 
-    const resultado = await processarPlanilhaEmpenho(req.file.path);
+    const mesReferencia = req.body.mesReferencia || null;
+    const resultado = await processarPlanilhaEmpenho(req.file.path, mesReferencia, req.file.originalname);
 
     // Remover arquivo após processamento
     fs.unlinkSync(req.file.path);
@@ -60,7 +62,8 @@ router.post('/upload', upload.single('planilha'), async (req: Request, res: Resp
 // Listar todos os empenhos
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const empenhos = await listarEmpenhos();
+    const { mesReferencia } = req.query;
+    const empenhos = await listarEmpenhos(mesReferencia as string);
     res.json(empenhos);
   } catch (error: any) {
     console.error('Erro ao listar empenhos:', error);
@@ -71,8 +74,9 @@ router.get('/', async (req: Request, res: Response) => {
 // Obter relatório comparativo
 router.get('/relatorio', async (req: Request, res: Response) => {
   try {
-    const totalFuncionarios = await obterTotalValorProporcional();
-    const totalEmpenhos = await obterTotalEmpenho();
+    const { mesReferencia } = req.query;
+    const totalFuncionarios = await planilhaService.obterTotalValorProporcional(mesReferencia as string);
+    const totalEmpenhos = await obterTotalEmpenho(mesReferencia as string);
     const diferenca = totalEmpenhos - totalFuncionarios;
 
     res.json({
@@ -82,6 +86,17 @@ router.get('/relatorio', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erro ao gerar relatório:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Listar meses disponíveis
+router.get('/meses', async (req: Request, res: Response) => {
+  try {
+    const meses = await listarMesesDisponiveisEmpenho();
+    res.json(meses);
+  } catch (error: any) {
+    console.error('Erro ao listar meses:', error);
     res.status(500).json({ error: error.message });
   }
 });

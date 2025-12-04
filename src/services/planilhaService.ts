@@ -1,9 +1,15 @@
 import xlsx from 'xlsx';
+import path from 'path';
 import { pool } from '../config/database';
 import { Funcionario } from '../types/funcionario';
+import { extrairMesReferencia } from '../utils/mesReferencia';
 
 export class PlanilhaService {
-  async processarPlanilha(filePath: string): Promise<{ sucesso: number; erros: string[] }> {
+  async processarPlanilha(filePath: string, mesReferencia: string | null, nomeOriginal?: string): Promise<{ sucesso: number; erros: string[] }> {
+    const nomeArquivo = nomeOriginal || path.basename(filePath);
+    const mesRef = mesReferencia || extrairMesReferencia(nomeArquivo);
+    console.log(`📅 Mês detectado de "${nomeArquivo}": ${mesRef}`);
+    const mesReferenciaFinal = mesRef;
     try {
       // Ler arquivo Excel
       const workbook = xlsx.readFile(filePath);
@@ -44,6 +50,11 @@ export class PlanilhaService {
         }
       }
       
+      // Limpar dados anteriores SOMENTE do mês atual
+      const deleteStmt = pool.prepare('DELETE FROM funcionarios WHERE mes_referencia = ?');
+      await deleteStmt.run(mesReferenciaFinal);
+      console.log(`🗑️ Dados anteriores do mês ${mesReferenciaFinal} removidos`);
+      
       let sucesso = 0;
       const erros: string[] = [];
 
@@ -81,7 +92,7 @@ export class PlanilhaService {
           }
 
           // Inserir no banco de dados
-          await this.salvarFuncionario(funcionario);
+          await this.salvarFuncionario(funcionario, mesReferenciaFinal);
           sucesso++;
         } catch (error: any) {
           erros.push(`Linha ${i + 2}: ${error.message}`);
@@ -94,15 +105,15 @@ export class PlanilhaService {
     }
   }
 
-  private async salvarFuncionario(funcionario: Funcionario): Promise<void> {
-    // Verificar se já existe registro com mesma matrícula
+  private async salvarFuncionario(funcionario: Funcionario, mesReferencia: string): Promise<void> {
+    // Verificar se já existe registro com mesma matrícula no mesmo mês
     if (funcionario.matricula) {
       const checkQuery = `
         SELECT id FROM funcionarios 
-        WHERE matricula = $1 AND nome = $2
+        WHERE matricula = ? AND nome = ? AND mes_referencia = ?
         LIMIT 1
       `;
-      const existing = await pool.query(checkQuery, [funcionario.matricula, funcionario.nome]);
+      const existing = await pool.query(checkQuery, [funcionario.matricula, funcionario.nome, mesReferencia]);
       
       if (existing.rows.length > 0) {
         // Já existe, não inserir duplicado
@@ -112,11 +123,12 @@ export class PlanilhaService {
     
     const query = `
       INSERT INTO funcionarios 
-      (contrato, comunidade, time_bre, gerente, preposto, nome, matricula, posto, grupo, valor_proporcional)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      (mes_referencia, contrato, comunidade, time_bre, gerente, preposto, nome, matricula, posto, grupo, valor_proporcional)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
+      mesReferencia,
       funcionario.contrato,
       funcionario.comunidade,
       funcionario.time_bre,
@@ -132,20 +144,52 @@ export class PlanilhaService {
     await pool.query(query, values);
   }
 
-  async listarFuncionarios(): Promise<Funcionario[]> {
-    const result = await pool.query('SELECT * FROM funcionarios ORDER BY nome ASC');
+  async listarFuncionarios(mesReferencia?: string): Promise<Funcionario[]> {
+    if (mesReferencia) {
+      const result = await pool.query('SELECT * FROM funcionarios WHERE mes_referencia = ? ORDER BY nome ASC', [mesReferencia]);
+      return result.rows;
+    }
+    // Se não especificado, pegar o mês mais recente
+    const result = await pool.query(`
+      SELECT * FROM funcionarios 
+      WHERE mes_referencia = (SELECT MAX(mes_referencia) FROM funcionarios)
+      ORDER BY nome ASC
+    `);
     return result.rows;
   }
 
-  async obterTotalValorProporcional(): Promise<number> {
-    const result = await pool.query('SELECT COALESCE(SUM(valor_proporcional), 0) as total FROM funcionarios');
+  async obterTotalValorProporcional(mesReferencia?: string): Promise<number> {
+    let query = 'SELECT COALESCE(SUM(valor_proporcional), 0) as total FROM funcionarios';
+    const params: string[] = [];
+    
+    if (mesReferencia) {
+      query += ' WHERE mes_referencia = ?';
+      params.push(mesReferencia);
+    } else {
+      // Se não especificado, pegar o mês mais recente
+      query += ' WHERE mes_referencia = (SELECT MAX(mes_referencia) FROM funcionarios)';
+    }
+    
+    const result = await pool.query(query, params);
     const total = parseFloat(result.rows[0].total);
     console.log(`💰 Total calculado: R$ ${total.toFixed(2)}`);
     return total;
   }
 
+  async listarMesesDisponiveis(): Promise<string[]> {
+    const result = await pool.all(`
+      SELECT DISTINCT mes_referencia 
+      FROM funcionarios 
+      UNION
+      SELECT DISTINCT mes_referencia 
+      FROM empenhos
+      ORDER BY mes_referencia DESC
+    `);
+    return result.map((row: any) => row.mes_referencia);
+  }
+
   async limparDados(): Promise<void> {
-    await pool.query('TRUNCATE TABLE funcionarios RESTART IDENTITY');
+    await pool.query('DELETE FROM funcionarios');
   }
 }
 

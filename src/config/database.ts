@@ -20,6 +20,31 @@ export const getDatabase = async () => {
 
 // Manter compatibilidade com código que usa pool
 export const pool = {
+  exec: async (text: string) => {
+    const database = await getDatabase();
+    await database.exec(text);
+  },
+  prepare: (text: string) => {
+    // Para compatibility com better-sqlite3, retornar objeto com run() e all()
+    return {
+      run: async (...params: any[]) => {
+        const database = await getDatabase();
+        return await database.run(text, ...params);
+      },
+      all: async (...params: any[]) => {
+        const database = await getDatabase();
+        return await database.all(text, ...params);
+      },
+      get: async (...params: any[]) => {
+        const database = await getDatabase();
+        return await database.get(text, ...params);
+      }
+    };
+  },
+  all: async (text: string, ...params: any[]) => {
+    const database = await getDatabase();
+    return await database.all(text, ...params);
+  },
   query: async (text: string, params?: any[]) => {
     const database = await getDatabase();
     

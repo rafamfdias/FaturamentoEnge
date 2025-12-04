@@ -383,6 +383,19 @@
             <p>Upload e processamento de planilhas</p>
         </div>
 
+        <!-- Filtro de Mês -->
+        <div class="card" style="margin-bottom: 20px; padding: 20px;">
+            <div style="display: flex; align-items: center; gap: 20px; justify-content: center;">
+                <label style="font-weight: bold; font-size: 1.1em; color: #667eea;">📅 Mês de Referência:</label>
+                <select id="mesReferenciaFilter" onchange="filtrarPorMes()" style="padding: 10px 20px; border-radius: 8px; border: 2px solid #667eea; font-size: 1em; min-width: 200px; cursor: pointer;">
+                    <option value="">Carregando...</option>
+                </select>
+                <button class="btn btn-secondary" onclick="carregarMesesDisponiveis()" style="padding: 10px 20px;">
+                    🔄 Atualizar
+                </button>
+            </div>
+        </div>
+
         <div class="tabs">
             <button class="tab active" onclick="switchTab('funcionarios')">Funcionários</button>
             <button class="tab" onclick="switchTab('empenho')">Empenho</button>
@@ -580,8 +593,15 @@
         <!-- Aba de Relatório -->
         <div id="relatorio-tab" class="tab-content">
             <div class="card">
-                <h2>📊 Relatório Comparativo</h2>
-                <p style="color: #666; margin-bottom: 20px;">Comparação entre funcionários cadastrados e valores de empenho por equipe</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h2>📊 Relatório Comparativo</h2>
+                        <p style="color: #666; margin: 5px 0 0 0;">Comparação entre funcionários cadastrados e valores de empenho por equipe</p>
+                    </div>
+                    <button class="btn" onclick="exportarExcel()" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 12px 24px; white-space: nowrap;">
+                        📊 Exportar Excel
+                    </button>
+                </div>
                 
                 <div class="stats">
                     <div class="stat-card">
@@ -720,6 +740,59 @@
     </div>
 
     <script>
+        // Variável global para mês selecionado
+        let mesReferenciaAtual = '';
+
+        // Carregar meses disponíveis
+        async function carregarMesesDisponiveis() {
+            try {
+                const response = await fetch('/api/planilha/meses');
+                const meses = await response.json();
+                
+                const select = document.getElementById('mesReferenciaFilter');
+                select.innerHTML = '<option value="">Todos os meses</option>';
+                
+                meses.forEach(mes => {
+                    const option = document.createElement('option');
+                    option.value = mes;
+                    option.textContent = formatarMesReferencia(mes);
+                    select.appendChild(option);
+                });
+                
+                // Selecionar o mês mais recente por padrão
+                if (meses.length > 0) {
+                    select.value = meses[0];
+                    mesReferenciaAtual = meses[0];
+                }
+            } catch (error) {
+                console.error('Erro ao carregar meses:', error);
+            }
+        }
+
+        // Formatar mês de referência (2025-11 -> Novembro/2025)
+        function formatarMesReferencia(mesRef) {
+            const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                          'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            const [ano, mes] = mesRef.split('-');
+            return `${meses[parseInt(mes) - 1]}/${ano}`;
+        }
+
+        // Filtrar dados por mês
+        function filtrarPorMes() {
+            const select = document.getElementById('mesReferenciaFilter');
+            mesReferenciaAtual = select.value;
+            
+            // Recarregar dados das abas
+            loadData();
+            loadEmpenho();
+            loadRelatorio();
+        }
+
+        // Carregar meses ao iniciar
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarMesesDisponiveis();
+        });
+
         // Gerenciamento de abas
         function switchTab(tabName) {
             // Remover active de todas as abas e conteúdos
@@ -789,7 +862,7 @@
             hideMessage();
 
             try {
-                const response = await fetch('/api/upload', {
+                const response = await fetch('/api/planilha/upload', {
                     method: 'POST',
                     body: formData
                 });
@@ -809,7 +882,8 @@
                     fileInfo.classList.remove('show');
                     uploadBtn.disabled = true;
 
-                    // Atualizar dados
+                    // Recarregar lista de meses e dados
+                    await carregarMesesDisponiveis();
                     await loadData();
                 } else {
                     showMessage('error', `❌ Erro: ${data.error}`);
@@ -828,9 +902,10 @@
             showLoading(true);
             
             try {
+                const mesParam = mesReferenciaAtual ? `?mesReferencia=${mesReferenciaAtual}` : '';
                 const [dataResponse, totalResponse] = await Promise.all([
-                    fetch('/api/funcionarios'),
-                    fetch('/api/total')
+                    fetch(`/api/planilha/funcionarios${mesParam}`),
+                    fetch(`/api/planilha/total${mesParam}`)
                 ]);
                 
                 const data = await dataResponse.json();
@@ -973,7 +1048,7 @@
             showLoading(true);
 
             try {
-                const response = await fetch('/api/funcionarios', {
+                const response = await fetch('/api/planilha/funcionarios', {
                     method: 'DELETE'
                 });
 
@@ -1080,7 +1155,8 @@
                     fileInfoEmpenho.classList.remove('show');
                     uploadBtnEmpenho.disabled = false;
 
-                    // Atualizar dados
+                    // Recarregar lista de meses e dados
+                    await carregarMesesDisponiveis();
                     await loadEmpenho();
                 } else {
                     showMessageEmpenho('error', `❌ Erro: ${data.error}`);
@@ -1097,7 +1173,8 @@
             showLoadingEmpenho(true);
             
             try {
-                const response = await fetch('/api/empenho');
+                const mesParam = mesReferenciaAtual ? `?mesReferencia=${mesReferenciaAtual}` : '';
+                const response = await fetch(`/api/empenho${mesParam}`);
                 const data = await response.json();
 
                 if (response.ok) {
@@ -1206,9 +1283,10 @@
             
             try {
                 // Carregar dados de funcionários e empenho
+                const mesParam = mesReferenciaAtual ? `?mesReferencia=${mesReferenciaAtual}` : '';
                 const [funcResponse, empResponse] = await Promise.all([
-                    fetch('/api/funcionarios'),
-                    fetch('/api/empenho')
+                    fetch(`/api/planilha/funcionarios${mesParam}`),
+                    fetch(`/api/empenho/${mesParam}`)
                 ]);
                 
                 const funcionarios = await funcResponse.json();
@@ -1469,7 +1547,7 @@
         // Mostrar detalhes dos funcionários da equipe
         async function showDetalhes(equipe) {
             try {
-                const response = await fetch('/api/funcionarios');
+                const response = await fetch('/api/planilha/funcionarios');
                 const funcionarios = await response.json();
                 
                 // Filtrar funcionários da equipe
@@ -1523,8 +1601,8 @@
         async function showComparacao(equipe) {
             try {
                 const [funcResponse, empResponse, membrosResponse] = await Promise.all([
-                    fetch('/api/funcionarios'),
-                    fetch('/api/empenho'),
+                    fetch('/api/planilha/funcionarios'),
+                    fetch('/api/empenho/'),
                     fetch(`/api/empenho/membros/${equipe}`)
                 ]);
                 
@@ -1534,8 +1612,18 @@
                 
                 console.log('Membros do empenho:', membrosEmpenho);
                 
-                // Filtrar funcionários da equipe
-                const funcionariosEquipe = funcionarios.filter(func => func.time_bre === equipe);
+                // Filtrar funcionários da equipe e ordenar por valor (maior primeiro) e depois por nome
+                const funcionariosEquipe = funcionarios
+                    .filter(func => func.time_bre === equipe)
+                    .sort((a, b) => {
+                        const valorA = parseFloat(a.valor_proporcional || 0);
+                        const valorB = parseFloat(b.valor_proporcional || 0);
+                        if (valorB !== valorA) {
+                            return valorB - valorA; // Maior valor primeiro
+                        }
+                        // Se valores iguais, ordenar alfabeticamente por nome
+                        return (a.nome || '').localeCompare(b.nome || '');
+                    });
                 
                 // Pegar quantidade do empenho para esta equipe
                 const empenhoEquipe = empenhos.find(emp => emp.equipe === equipe);
@@ -1583,35 +1671,43 @@
                 
                 document.getElementById('modalTitle').textContent = titulo;
                 
-                // Preencher tabela
+                // Preencher tabela - FILTRAR APENAS OS QUE ESTÃO NO EMPENHO
                 const tbody = document.getElementById('modalTableBody');
                 tbody.innerHTML = '';
                 
-                if (funcionariosEquipe.length === 0) {
-                    const row = tbody.insertRow();
-                    row.innerHTML = '<td colspan="9" style="text-align: center;">Nenhum funcionário cadastrado nesta equipe</td>';
-                } else {
-                    funcionariosEquipe.forEach((func, index) => {
-                        const row = tbody.insertRow();
-                        
-                        // Verificar se o funcionário está na lista de membros do empenho
-                        const matriculaFunc = String(func.matricula || '').trim().toUpperCase();
-                        const nomeFunc = String(func.nome || '').trim().toUpperCase();
-                        
-                        // Tentar encontrar por matrícula (com ou sem prefixo) ou por nome
-                        const semPrefixoFunc = matriculaFunc.replace(/^[A-Z]/, '');
-                        const estaNoEmpenho = matriculasEmpenho.has(matriculaFunc) || 
-                                             matriculasEmpenho.has(semPrefixoFunc) ||
-                                             matriculasEmpenho.has('F' + semPrefixoFunc) ||
-                                             matriculasEmpenho.has('P' + semPrefixoFunc) ||
-                                             nomesEmpenho.has(nomeFunc);
-                        
-                        console.log(`Funcionário: ${func.nome} (${matriculaFunc}) - Está no empenho: ${estaNoEmpenho}`);
-                        
-                        // Se o funcionário não está no empenho, destacar em vermelho
-                        if (!estaNoEmpenho) {
-                            row.style.backgroundColor = '#ffcccc';
+                // Filtrar funcionários que ESTÃO no empenho (pela tabela membros_empenho)
+                const funcionariosNoEmpenho = funcionariosEquipe.filter(func => {
+                    // Verificar por matrícula
+                    if (func.matricula) {
+                        const mat = String(func.matricula).trim().toUpperCase();
+                        if (matriculasEmpenho.has(mat)) {
+                            return true;
                         }
+                    }
+                    // Verificar por nome
+                    if (func.nome) {
+                        const nome = String(func.nome).trim().toUpperCase();
+                        if (nomesEmpenho.has(nome)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+                
+                console.log(`Total de funcionários na equipe: ${funcionariosEquipe.length}`);
+                console.log(`Quantidade no empenho: ${qtdEmpenho}`);
+                console.log(`Funcionários que estão no empenho: ${funcionariosNoEmpenho.length}`);
+                
+                if (funcionariosNoEmpenho.length === 0) {
+                    const row = tbody.insertRow();
+                    row.innerHTML = '<td colspan="9" style="text-align: center; color: orange;">⚠️ Nenhum funcionário encontrado na lista de membros do empenho</td>';
+                } else {
+                    let totalValor = 0;
+                    funcionariosNoEmpenho.forEach((func, index) => {
+                        const row = tbody.insertRow();
+                        row.style.backgroundColor = '#d4edda'; // Verde claro
+                        
+                        totalValor += parseFloat(func.valor_proporcional || 0);
                         
                         row.innerHTML = `
                             <td>${func.contrato || '-'}</td>
@@ -1625,6 +1721,15 @@
                             <td>R$ ${parseFloat(func.valor_proporcional || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         `;
                     });
+                    
+                    // Adicionar linha de total
+                    const rowTotal = tbody.insertRow();
+                    rowTotal.style.backgroundColor = '#e7f3ff';
+                    rowTotal.style.fontWeight = 'bold';
+                    rowTotal.innerHTML = `
+                        <td colspan="8" style="text-align: right; padding-right: 10px;">Total (${funcionariosNoEmpenho.length} funcionário(s)):</td>
+                        <td>R$ ${totalValor.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    `;
                 }
                 
                 // Exibir modal
@@ -1707,6 +1812,28 @@
             } catch (error) {
                 console.error('Erro ao analisar:', error);
                 alert('Erro ao analisar funcionários fora do empenho.');
+            }
+        }
+
+        // Exportar dados para Excel
+        async function exportarExcel() {
+            try {
+                const mesParam = mesReferenciaAtual ? `?mesReferencia=${mesReferenciaAtual}` : '';
+                const url = `/api/export/excel${mesParam}`;
+                
+                console.log('📊 Exportando para Excel...');
+                
+                // Abrir URL em nova aba para forçar download
+                window.location.href = url;
+                
+                // Mostrar mensagem de sucesso
+                setTimeout(() => {
+                    alert('✅ Planilha Excel está sendo gerada! O download começará em instantes.');
+                }, 500);
+                
+            } catch (error) {
+                console.error('Erro ao exportar:', error);
+                alert('❌ Erro ao exportar planilha: ' + error.message);
             }
         }
     </script>

@@ -4,6 +4,7 @@ export const createTables = async () => {
   const queries = [
     `CREATE TABLE IF NOT EXISTS funcionarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mes_referencia TEXT NOT NULL,
       contrato TEXT,
       comunidade TEXT,
       time_bre TEXT,
@@ -18,6 +19,7 @@ export const createTables = async () => {
     )`,
     `CREATE TABLE IF NOT EXISTS empenhos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mes_referencia TEXT NOT NULL,
       comunidade TEXT,
       equipe TEXT,
       quantidade_membros REAL,
@@ -26,6 +28,7 @@ export const createTables = async () => {
     )`,
     `CREATE TABLE IF NOT EXISTS membros_empenho (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mes_referencia TEXT NOT NULL,
       comunidade TEXT,
       equipe TEXT,
       nome TEXT,
@@ -36,7 +39,7 @@ export const createTables = async () => {
 
   try {
     for (const query of queries) {
-      await pool.query(query);
+      await pool.exec(query);
     }
     console.log('✅ Tabelas "funcionarios", "empenhos" e "membros_empenho" criadas ou já existem');
   } catch (error) {
