@@ -350,7 +350,7 @@ export const listarMembrosEmpenho = async (equipe: string) => {
 
 export const analisarFuncionariosForaEmpenho = async () => {
   try {
-    const result = await pool.query(`
+    const result = await pool.all(`
       SELECT f.* 
       FROM funcionarios f
       WHERE NOT EXISTS (
@@ -359,9 +359,9 @@ export const analisarFuncionariosForaEmpenho = async () => {
            OR m.matricula = REPLACE(f.matricula, 'F', 'P')
            OR m.matricula = REPLACE(f.matricula, 'P', 'F')
       )
-      ORDER BY f.equipe, f.nome
+      ORDER BY f.time_bre, f.nome
     `);
-    return result.rows;
+    return result;
   } catch (error: any) {
     throw new Error(`Erro ao analisar funcionários fora do empenho: ${error.message}`);
   }

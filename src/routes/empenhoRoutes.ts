@@ -116,8 +116,11 @@ router.get('/membros/:equipe?', async (req: Request, res: Response) => {
 // Analisar funcionários que não estão no empenho
 router.get('/analise/fora-empenho', async (req: Request, res: Response) => {
   try {
-    const resultado = await analisarFuncionariosForaEmpenho();
-    res.json(resultado);
+    const funcionarios = await analisarFuncionariosForaEmpenho();
+    res.json({
+      total: funcionarios.length,
+      funcionarios: funcionarios
+    });
   } catch (error: any) {
     console.error('Erro ao analisar funcionários fora do empenho:', error);
     res.status(500).json({ error: error.message });
