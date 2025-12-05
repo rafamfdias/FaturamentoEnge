@@ -6,7 +6,7 @@ Sistema web para processamento de planilhas Excel com informações de funcioná
 
 - **Backend:** Node.js com TypeScript
 - **Framework:** Express.js
-- **Banco de Dados:** PostgreSQL
+- **Banco de Dados:** SQLite
 - **Upload:** Multer
 - **Processamento Excel:** xlsx
 - **Frontend:** HTML, CSS, JavaScript
