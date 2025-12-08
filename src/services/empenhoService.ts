@@ -363,8 +363,8 @@ export const analisarFuncionariosForaEmpenho = async (mesReferencia?: string) =>
       countMembrosQuery += ' WHERE mes_referencia = ?';
       const totalFunc = await pool.query(countFuncQuery, [mesReferencia]);
       const totalMembros = await pool.query(countMembrosQuery, [mesReferencia]);
-      const totalFuncValue = (totalFunc.rows && totalFunc.rows[0]) ? totalFunc.rows[0].total : totalFunc[0]?.total;
-      const totalMembrosValue = (totalMembros.rows && totalMembros.rows[0]) ? totalMembros.rows[0].total : totalMembros[0]?.total;
+      const totalFuncValue = (totalFunc.rows && totalFunc.rows[0]) ? totalFunc.rows[0].total : (totalFunc as any)[0]?.total;
+      const totalMembrosValue = (totalMembros.rows && totalMembros.rows[0]) ? totalMembros.rows[0].total : (totalMembros as any)[0]?.total;
       console.log(`📊 Total de funcionários no mês ${mesReferencia}: ${totalFuncValue}`);
       console.log(`📊 Total de membros empenho no mês ${mesReferencia}: ${totalMembrosValue}`);
     }
