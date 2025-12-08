@@ -1676,7 +1676,7 @@
                 
                 document.getElementById('modalTitle').textContent = titulo;
                 
-                // Preencher tabela - FILTRAR APENAS OS QUE ESTÃO NO EMPENHO
+                // Preencher tabela - MOSTRAR DOIS GRUPOS
                 const tbody = document.getElementById('modalTableBody');
                 tbody.innerHTML = '';
                 
@@ -1699,20 +1699,45 @@
                     return false;
                 });
                 
+                // Filtrar funcionários que NÃO ESTÃO no empenho
+                const funcionariosForaEmpenho = funcionariosEquipe.filter(func => {
+                    // Verificar por matrícula
+                    if (func.matricula) {
+                        const mat = String(func.matricula).trim().toUpperCase();
+                        if (matriculasEmpenho.has(mat)) {
+                            return false;
+                        }
+                    }
+                    // Verificar por nome
+                    if (func.nome) {
+                        const nome = String(func.nome).trim().toUpperCase();
+                        if (nomesEmpenho.has(nome)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+                
                 console.log(`Total de funcionários na equipe: ${funcionariosEquipe.length}`);
                 console.log(`Quantidade no empenho: ${qtdEmpenho}`);
                 console.log(`Funcionários que estão no empenho: ${funcionariosNoEmpenho.length}`);
+                console.log(`Funcionários que NÃO estão no empenho: ${funcionariosForaEmpenho.length}`);
                 
-                if (funcionariosNoEmpenho.length === 0) {
-                    const row = tbody.insertRow();
-                    row.innerHTML = '<td colspan="9" style="text-align: center; color: orange;">⚠️ Nenhum funcionário encontrado na lista de membros do empenho</td>';
-                } else {
-                    let totalValor = 0;
+                // SEÇÃO 1: Funcionários que ESTÃO no empenho
+                if (funcionariosNoEmpenho.length > 0) {
+                    // Cabeçalho da seção
+                    const headerRow = tbody.insertRow();
+                    headerRow.style.backgroundColor = '#28a745';
+                    headerRow.style.color = 'white';
+                    headerRow.style.fontWeight = 'bold';
+                    headerRow.innerHTML = '<td colspan="9" style="padding: 12px; font-size: 16px;">✅ Funcionários na BRE e na Planilha Empenho</td>';
+                    
+                    let totalValorNoEmpenho = 0;
                     funcionariosNoEmpenho.forEach((func, index) => {
                         const row = tbody.insertRow();
                         row.style.backgroundColor = '#d4edda'; // Verde claro
                         
-                        totalValor += parseFloat(func.valor_proporcional || 0);
+                        totalValorNoEmpenho += parseFloat(func.valor_proporcional || 0);
                         
                         row.innerHTML = `
                             <td>${func.contrato || '-'}</td>
@@ -1727,14 +1752,78 @@
                         `;
                     });
                     
-                    // Adicionar linha de total
+                    // Linha de total da seção
                     const rowTotal = tbody.insertRow();
-                    rowTotal.style.backgroundColor = '#e7f3ff';
+                    rowTotal.style.backgroundColor = '#c3e6cb';
                     rowTotal.style.fontWeight = 'bold';
                     rowTotal.innerHTML = `
                         <td colspan="8" style="text-align: right; padding-right: 10px;">Total (${funcionariosNoEmpenho.length} funcionário(s)):</td>
-                        <td>R$ ${totalValor.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td>R$ ${totalValorNoEmpenho.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     `;
+                } else {
+                    // Cabeçalho da seção
+                    const headerRow = tbody.insertRow();
+                    headerRow.style.backgroundColor = '#28a745';
+                    headerRow.style.color = 'white';
+                    headerRow.style.fontWeight = 'bold';
+                    headerRow.innerHTML = '<td colspan="9" style="padding: 12px; font-size: 16px;">✅ Funcionários na BRE e na Planilha Empenho</td>';
+                    
+                    const row = tbody.insertRow();
+                    row.innerHTML = '<td colspan="9" style="text-align: center; color: orange; padding: 10px;">⚠️ Nenhum funcionário encontrado na lista de membros do empenho</td>';
+                }
+                
+                // Espaçador entre seções
+                const spacerRow = tbody.insertRow();
+                spacerRow.style.height = '20px';
+                spacerRow.innerHTML = '<td colspan="9"></td>';
+                
+                // SEÇÃO 2: Funcionários que NÃO ESTÃO no empenho
+                if (funcionariosForaEmpenho.length > 0) {
+                    // Cabeçalho da seção
+                    const headerRow2 = tbody.insertRow();
+                    headerRow2.style.backgroundColor = '#dc3545';
+                    headerRow2.style.color = 'white';
+                    headerRow2.style.fontWeight = 'bold';
+                    headerRow2.innerHTML = '<td colspan="9" style="padding: 12px; font-size: 16px;">❌ Funcionários na BRE mas NÃO na Planilha Empenho</td>';
+                    
+                    let totalValorForaEmpenho = 0;
+                    funcionariosForaEmpenho.forEach((func, index) => {
+                        const row = tbody.insertRow();
+                        row.style.backgroundColor = '#f8d7da'; // Vermelho claro
+                        
+                        totalValorForaEmpenho += parseFloat(func.valor_proporcional || 0);
+                        
+                        row.innerHTML = `
+                            <td>${func.contrato || '-'}</td>
+                            <td>${func.comunidade || '-'}</td>
+                            <td>${func.gerente || '-'}</td>
+                            <td>${func.preposto || '-'}</td>
+                            <td>${func.nome || '-'}</td>
+                            <td>${func.matricula || '-'}</td>
+                            <td>${func.posto || '-'}</td>
+                            <td>${func.grupo || '-'}</td>
+                            <td>R$ ${parseFloat(func.valor_proporcional || 0).toLocaleString('pt-BR', {minimumFractionDigis: 2, maximumFractionDigits: 2})}</td>
+                        `;
+                    });
+                    
+                    // Linha de total da seção
+                    const rowTotal2 = tbody.insertRow();
+                    rowTotal2.style.backgroundColor = '#f5c6cb';
+                    rowTotal2.style.fontWeight = 'bold';
+                    rowTotal2.innerHTML = `
+                        <td colspan="8" style="text-align: right; padding-right: 10px;">Total (${funcionariosForaEmpenho.length} funcionário(s)):</td>
+                        <td>R$ ${totalValorForaEmpenho.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    `;
+                } else {
+                    // Cabeçalho da seção
+                    const headerRow2 = tbody.insertRow();
+                    headerRow2.style.backgroundColor = '#dc3545';
+                    headerRow2.style.color = 'white';
+                    headerRow2.style.fontWeight = 'bold';
+                    headerRow2.innerHTML = '<td colspan="9" style="padding: 12px; font-size: 16px;">❌ Funcionários na BRE mas NÃO na Planilha Empenho</td>';
+                    
+                    const row = tbody.insertRow();
+                    row.innerHTML = '<td colspan="9" style="text-align: center; color: green; padding: 10px; font-weight: bold;">✅ Todos os funcionários estão na planilha de empenho!</td>';
                 }
                 
                 // Exibir modal
@@ -1780,8 +1869,12 @@
         // Analisar funcionários fora do empenho
         async function analisarForaEmpenho() {
             try {
-                const response = await fetch('/api/empenho/analise/fora-empenho');
+                console.log('🔍 Analisando com mês:', mesReferenciaAtual);
+                const mesParam = mesReferenciaAtual ? `?mesReferencia=${mesReferenciaAtual}` : '';
+                console.log('📡 URL:', `/api/empenho/analise/fora-empenho${mesParam}`);
+                const response = await fetch(`/api/empenho/analise/fora-empenho${mesParam}`);
                 const resultado = await response.json();
+                console.log('📊 Resultado:', resultado);
                 
                 if (response.ok) {
                     // Atualizar total

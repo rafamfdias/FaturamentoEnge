@@ -348,21 +348,76 @@ export const listarMembrosEmpenho = async (equipe: string) => {
   }
 };
 
-export const analisarFuncionariosForaEmpenho = async () => {
+export const analisarFuncionariosForaEmpenho = async (mesReferencia?: string) => {
   try {
-    const result = await pool.all(`
-      SELECT f.* 
+    console.log('🔍 Analisando funcionários fora do empenho para o mês:', mesReferencia || 'mais recente');
+    
+    const params: string[] = [];
+    
+    // Primeiro, contar totais para debug
+    let countFuncQuery = 'SELECT COUNT(*) as total FROM funcionarios';
+    let countMembrosQuery = 'SELECT COUNT(*) as total FROM membros_empenho';
+    
+    if (mesReferencia) {
+      countFuncQuery += ' WHERE mes_referencia = ?';
+      countMembrosQuery += ' WHERE mes_referencia = ?';
+      const totalFunc = await pool.query(countFuncQuery, [mesReferencia]);
+      const totalMembros = await pool.query(countMembrosQuery, [mesReferencia]);
+      const totalFuncValue = (totalFunc.rows && totalFunc.rows[0]) ? totalFunc.rows[0].total : totalFunc[0]?.total;
+      const totalMembrosValue = (totalMembros.rows && totalMembros.rows[0]) ? totalMembros.rows[0].total : totalMembros[0]?.total;
+      console.log(`📊 Total de funcionários no mês ${mesReferencia}: ${totalFuncValue}`);
+      console.log(`📊 Total de membros empenho no mês ${mesReferencia}: ${totalMembrosValue}`);
+    }
+    
+    // Query - comparar por nome dentro da mesma equipe
+    let query = `
+      SELECT DISTINCT f.* 
       FROM funcionarios f
-      WHERE NOT EXISTS (
-        SELECT 1 FROM membros_empenho m 
-        WHERE m.matricula = f.matricula 
-           OR m.matricula = REPLACE(f.matricula, 'F', 'P')
-           OR m.matricula = REPLACE(f.matricula, 'P', 'F')
-      )
+      WHERE f.time_bre IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM membros_empenho m 
+          WHERE m.equipe = f.time_bre
+            AND UPPER(TRIM(m.nome)) = UPPER(TRIM(f.nome))
+    `;
+    
+    if (mesReferencia) {
+      query += ` AND m.mes_referencia = ?`;
+      params.push(mesReferencia);
+      query += `
+        )
+      AND f.mes_referencia = ?`;
+      params.push(mesReferencia);
+    } else {
+      // Se não especificado, usar o mês mais recente
+      query += ` AND m.mes_referencia = (SELECT MAX(mes_referencia) FROM membros_empenho)`;
+      query += `
+        )
+      AND f.mes_referencia = (SELECT MAX(mes_referencia) FROM funcionarios)`;
+    }
+    
+    query += `
       ORDER BY f.time_bre, f.nome
-    `);
-    return result;
+    `;
+    
+    console.log('🔍 Query SQL:', query);
+    console.log('🔍 Parâmetros:', params);
+    
+    const result = await pool.query(query, params);
+    const funcionarios = result.rows || result;
+    
+    console.log(`✅ Funcionários fora do empenho encontrados: ${funcionarios.length}`);
+    
+    // Log de alguns exemplos
+    if (funcionarios.length > 0) {
+      console.log('📝 Primeiros 5 funcionários fora do empenho:');
+      funcionarios.slice(0, 5).forEach((f: any) => {
+        console.log(`  - ${f.nome} (${f.matricula}) - BRE: ${f.time_bre}`);
+      });
+    }
+    
+    return funcionarios;
   } catch (error: any) {
+    console.error('❌ Erro ao analisar funcionários fora do empenho:', error);
     throw new Error(`Erro ao analisar funcionários fora do empenho: ${error.message}`);
   }
 };

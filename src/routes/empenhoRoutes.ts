@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { processarPlanilhaEmpenho, listarEmpenhos, obterTotalEmpenho, listarMembrosEmpenho, analisarFuncionariosForaEmpenho, listarMesesDisponiveisEmpenho } from '../services/empenhoService';
 import { PlanilhaService } from '../services/planilhaService';
+import { pool } from '../config/database';
 
 const router = Router();
 const planilhaService = new PlanilhaService();
@@ -116,7 +117,9 @@ router.get('/membros/:equipe?', async (req: Request, res: Response) => {
 // Analisar funcionários que não estão no empenho
 router.get('/analise/fora-empenho', async (req: Request, res: Response) => {
   try {
-    const funcionarios = await analisarFuncionariosForaEmpenho();
+    const { mesReferencia } = req.query;
+    console.log('📊 Requisição de análise recebida com mesReferencia:', mesReferencia);
+    const funcionarios = await analisarFuncionariosForaEmpenho(mesReferencia as string);
     res.json({
       total: funcionarios.length,
       funcionarios: funcionarios
@@ -124,6 +127,48 @@ router.get('/analise/fora-empenho', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Erro ao analisar funcionários fora do empenho:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Debug: Verificar dados no banco
+router.get('/debug/dados', async (req: Request, res: Response) => {
+  try {
+    const { mesReferencia } = req.query;
+    console.log('🔍 Debug: mesReferencia =', mesReferencia);
+    
+    const totalFuncQuery = mesReferencia 
+      ? 'SELECT COUNT(*) as total FROM funcionarios WHERE mes_referencia = ?' 
+      : 'SELECT COUNT(*) as total FROM funcionarios';
+    const totalMembrosQuery = mesReferencia 
+      ? 'SELECT COUNT(*) as total FROM membros_empenho WHERE mes_referencia = ?' 
+      : 'SELECT COUNT(*) as total FROM membros_empenho';
+    
+    const params = mesReferencia ? [mesReferencia] : [];
+    
+    const totalFunc = await pool.all(totalFuncQuery, ...params);
+    const totalMembros = await pool.all(totalMembrosQuery, ...params);
+    
+    // Pegar sample de matrículas
+    const sampleFuncQuery = mesReferencia
+      ? 'SELECT matricula, nome FROM funcionarios WHERE mes_referencia = ? LIMIT 10'
+      : 'SELECT matricula, nome FROM funcionarios LIMIT 10';
+    const sampleMembrosQuery = mesReferencia
+      ? 'SELECT matricula, nome FROM membros_empenho WHERE mes_referencia = ? LIMIT 10'
+      : 'SELECT matricula, nome FROM membros_empenho LIMIT 10';
+    
+    const sampleFunc = await pool.all(sampleFuncQuery, ...params);
+    const sampleMembros = await pool.all(sampleMembrosQuery, ...params);
+    
+    res.json({
+      mesReferencia: mesReferencia || 'todos',
+      totalFuncionarios: totalFunc[0]?.total || 0,
+      totalMembrosEmpenho: totalMembros[0]?.total || 0,
+      sampleFuncionarios: sampleFunc,
+      sampleMembrosEmpenho: sampleMembros
+    });
+  } catch (error: any) {
+    console.error('Erro no debug:', error);
+    res.status(500).json({ error: error.message, stack: error.stack });
   }
 });
 

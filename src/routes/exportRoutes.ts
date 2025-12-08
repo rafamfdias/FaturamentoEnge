@@ -82,12 +82,12 @@ router.get('/excel', async (req: Request, res: Response) => {
     const queryMembros = `
       SELECT 
         e.comunidade as Comunidade,
-        m.equipe as "Equipe (BRE)",
+        m.equipe as Equipe,
         m.nome as "Nome do Membro",
-        m.matricula as Matrícula
+        m.matricula as "Matrícula do Membro"
       FROM membros_empenho m
       LEFT JOIN empenhos e ON m.equipe = e.equipe AND m.mes_referencia = e.mes_referencia
-      ${mesReferencia ? 'WHERE m.mes_referencia = ?' : ''}
+      ${mesReferencia ? 'WHERE m.mes_referencia = ? AND m.nome IS NOT NULL AND m.nome != "" AND m.nome NOT LIKE "%Equipe%" AND m.nome NOT LIKE "%Nome%"' : 'WHERE m.nome IS NOT NULL AND m.nome != "" AND m.nome NOT LIKE "%Equipe%" AND m.nome NOT LIKE "%Nome%"'}
       ORDER BY e.comunidade, m.equipe, m.nome
     `;
     
@@ -101,6 +101,7 @@ router.get('/excel', async (req: Request, res: Response) => {
         f.comunidade as Comunidade,
         f.time_bre as "Equipe (BRE)",
         f.nome as "Nome do Funcionário",
+        f.matricula as Matrícula,
         f.posto as Posto,
         ROUND(f.valor_proporcional, 2) as "Valor Proporcional",
         f.gerente as Gerente,
@@ -109,7 +110,7 @@ router.get('/excel', async (req: Request, res: Response) => {
       WHERE ${mesReferencia ? 'f.mes_referencia = ? AND' : ''} f.time_bre IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM membros_empenho m 
-          WHERE m.equipe = f.time_bre 
+          WHERE m.equipe = f.time_bre
             AND UPPER(TRIM(m.nome)) = UPPER(TRIM(f.nome))
             ${mesReferencia ? 'AND m.mes_referencia = ?' : ''}
         )
