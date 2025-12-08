@@ -78,43 +78,45 @@ router.get('/excel', async (req: Request, res: Response) => {
       ? await pool.prepare(queryFuncionarios).all(mesReferencia)
       : await pool.prepare(queryFuncionarios).all();
     
-    // Query 4: Lista de membros do empenho
+    // Query 4: Lista de membros do empenho (sem duplicados)
     const queryMembros = `
       SELECT 
-        e.comunidade as Comunidade,
+        MAX(e.comunidade) as Comunidade,
         m.equipe as Equipe,
         m.nome as "Nome do Membro",
         m.matricula as "Matrícula do Membro"
       FROM membros_empenho m
       LEFT JOIN empenhos e ON m.equipe = e.equipe AND m.mes_referencia = e.mes_referencia
       ${mesReferencia ? 'WHERE m.mes_referencia = ? AND m.nome IS NOT NULL AND m.nome != "" AND m.nome NOT LIKE "%Equipe%" AND m.nome NOT LIKE "%Nome%"' : 'WHERE m.nome IS NOT NULL AND m.nome != "" AND m.nome NOT LIKE "%Equipe%" AND m.nome NOT LIKE "%Nome%"'}
-      ORDER BY e.comunidade, m.equipe, m.nome
+      GROUP BY m.equipe, m.nome, m.matricula
+      ORDER BY Comunidade, m.equipe, m.nome
     `;
     
     const membros = mesReferencia 
       ? await pool.prepare(queryMembros).all(mesReferencia)
       : await pool.prepare(queryMembros).all();
     
-    // Query 5: Funcionários que estão faltando no empenho (não estão na lista de membros)
+    // Query 5: Funcionários que estão faltando no empenho (não estão na lista de membros) - sem duplicados
     const queryFaltandoEmpenho = `
       SELECT 
-        f.comunidade as Comunidade,
+        MAX(f.comunidade) as Comunidade,
         f.time_bre as "Equipe (BRE)",
         f.nome as "Nome do Funcionário",
         f.matricula as Matrícula,
-        f.posto as Posto,
-        ROUND(f.valor_proporcional, 2) as "Valor Proporcional",
-        f.gerente as Gerente,
-        f.preposto as Preposto
+        MAX(f.posto) as Posto,
+        ROUND(MAX(f.valor_proporcional), 2) as "Valor Proporcional",
+        MAX(f.gerente) as Gerente,
+        MAX(f.preposto) as Preposto
       FROM funcionarios f
       WHERE ${mesReferencia ? 'f.mes_referencia = ? AND' : ''} f.time_bre IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM membros_empenho m 
           WHERE m.equipe = f.time_bre
-            AND UPPER(TRIM(m.nome)) = UPPER(TRIM(f.nome))
+            AND UPPER(TRIM(m.matricula)) = UPPER(TRIM(f.matricula))
             ${mesReferencia ? 'AND m.mes_referencia = ?' : ''}
         )
-      ORDER BY f.comunidade, f.time_bre, f.nome
+      GROUP BY f.matricula, f.time_bre, f.nome
+      ORDER BY Comunidade, "Equipe (BRE)", f.nome
     `;
     
     const faltandoParams = mesReferencia ? [mesReferencia, mesReferencia] : [];

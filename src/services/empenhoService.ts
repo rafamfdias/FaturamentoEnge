@@ -369,15 +369,18 @@ export const analisarFuncionariosForaEmpenho = async (mesReferencia?: string) =>
       console.log(`📊 Total de membros empenho no mês ${mesReferencia}: ${totalMembrosValue}`);
     }
     
-    // Query - comparar por nome dentro da mesma equipe
+    // Query - comparar por nome dentro da mesma equipe (sem duplicados)
     let query = `
-      SELECT DISTINCT f.* 
+      SELECT f.*
       FROM funcionarios f
-      WHERE f.time_bre IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM membros_empenho m 
-          WHERE m.equipe = f.time_bre
-            AND UPPER(TRIM(m.nome)) = UPPER(TRIM(f.nome))
+      WHERE f.id IN (
+        SELECT MIN(f2.id)
+        FROM funcionarios f2
+        WHERE f2.time_bre IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM membros_empenho m 
+            WHERE m.equipe = f2.time_bre
+              AND UPPER(TRIM(m.matricula)) = UPPER(TRIM(f2.matricula))
     `;
     
     if (mesReferencia) {
@@ -396,6 +399,8 @@ export const analisarFuncionariosForaEmpenho = async (mesReferencia?: string) =>
     }
     
     query += `
+        GROUP BY f2.matricula
+      )
       ORDER BY f.time_bre, f.nome
     `;
     
