@@ -379,8 +379,7 @@ export const analisarFuncionariosForaEmpenho = async (mesReferencia?: string) =>
         WHERE f2.time_bre IS NOT NULL
           AND NOT EXISTS (
             SELECT 1 FROM membros_empenho m 
-            WHERE m.equipe = f2.time_bre
-              AND UPPER(TRIM(m.matricula)) = UPPER(TRIM(f2.matricula))
+            WHERE UPPER(TRIM(m.matricula)) = UPPER(TRIM(f2.matricula))
     `;
     
     if (mesReferencia) {

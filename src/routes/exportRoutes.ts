@@ -111,8 +111,7 @@ router.get('/excel', async (req: Request, res: Response) => {
       WHERE ${mesReferencia ? 'f.mes_referencia = ? AND' : ''} f.time_bre IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM membros_empenho m 
-          WHERE m.equipe = f.time_bre
-            AND UPPER(TRIM(m.matricula)) = UPPER(TRIM(f.matricula))
+          WHERE UPPER(TRIM(m.matricula)) = UPPER(TRIM(f.matricula))
             ${mesReferencia ? 'AND m.mes_referencia = ?' : ''}
         )
       GROUP BY f.matricula, f.time_bre, f.nome
