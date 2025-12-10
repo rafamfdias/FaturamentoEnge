@@ -261,17 +261,18 @@ async function processarAbaMembros(workbook: XLSX.WorkBook, mesReferencia: strin
         console.log(`🔍 Linha ${membrosSalvos + 1}:`, { termo, equipe, matricula, nome });
       }
       
-      // Pular linhas sem equipe ou nome (ou com nome "-")
-      if (!equipe || !nome || nome === '-') {
+      // Pular linhas sem equipe E sem matrícula
+      // Agora aceita linhas mesmo sem nome, desde que tenha equipe e matrícula
+      if (!equipe || (!nome && !matricula) || (nome === '-' && !matricula)) {
         continue;
       }
       
       // Normalizar equipe (remover espaços)
       const equipeLimpa = String(equipe).trim();
-      const nomeLimpo = String(nome).trim();
+      const nomeLimpo = nome ? String(nome).trim() : '';
       const matriculaLimpa = String(matricula).trim();
       
-      console.log(`📝 Salvando: ${equipeLimpa} - ${nomeLimpo} (${matriculaLimpa})`);
+      console.log(`📝 Salvando: ${equipeLimpa} - ${nomeLimpo || 'SEM NOME'} (${matriculaLimpa})`);
       
       // Inserir membro no banco
       const stmt = pool.prepare(`
@@ -279,7 +280,7 @@ async function processarAbaMembros(workbook: XLSX.WorkBook, mesReferencia: strin
         VALUES (?, ?, ?, ?, ?)
       `);
       
-      await stmt.run(mesReferencia, termo || '', equipeLimpa, nomeLimpo, matriculaLimpa);
+      await stmt.run(mesReferencia, termo || '', equipeLimpa, nomeLimpo || '-', matriculaLimpa);
       membrosSalvos++;
       
     } catch (error: any) {

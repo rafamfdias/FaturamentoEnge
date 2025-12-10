@@ -1681,39 +1681,23 @@
                 tbody.innerHTML = '';
                 
                 // Filtrar funcionários que ESTÃO no empenho (pela tabela membros_empenho)
+                // Prioriza matrícula - se tiver matrícula no empenho, considera que está lá
                 const funcionariosNoEmpenho = funcionariosEquipe.filter(func => {
-                    // Verificar por matrícula
+                    // Verificar por matrícula (prioritário)
                     if (func.matricula) {
                         const mat = String(func.matricula).trim().toUpperCase();
-                        if (matriculasEmpenho.has(mat)) {
-                            return true;
-                        }
-                    }
-                    // Verificar por nome
-                    if (func.nome) {
-                        const nome = String(func.nome).trim().toUpperCase();
-                        if (nomesEmpenho.has(nome)) {
-                            return true;
-                        }
+                        return matriculasEmpenho.has(mat);
                     }
                     return false;
                 });
                 
                 // Filtrar funcionários que NÃO ESTÃO no empenho
+                // Prioriza matrícula - se não tiver matrícula no empenho, considera que está fora
                 const funcionariosForaEmpenho = funcionariosEquipe.filter(func => {
-                    // Verificar por matrícula
+                    // Verificar por matrícula (prioritário)
                     if (func.matricula) {
                         const mat = String(func.matricula).trim().toUpperCase();
-                        if (matriculasEmpenho.has(mat)) {
-                            return false;
-                        }
-                    }
-                    // Verificar por nome
-                    if (func.nome) {
-                        const nome = String(func.nome).trim().toUpperCase();
-                        if (nomesEmpenho.has(nome)) {
-                            return false;
-                        }
+                        return !matriculasEmpenho.has(mat);
                     }
                     return true;
                 });
@@ -1802,7 +1786,7 @@
                             <td>${func.matricula || '-'}</td>
                             <td>${func.posto || '-'}</td>
                             <td>${func.grupo || '-'}</td>
-                            <td>R$ ${parseFloat(func.valor_proporcional || 0).toLocaleString('pt-BR', {minimumFractionDigis: 2, maximumFractionDigits: 2})}</td>
+                            <td>R$ ${parseFloat(func.valor_proporcional || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         `;
                     });
                     
